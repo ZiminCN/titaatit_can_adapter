@@ -1,0 +1,6 @@
+board:
+  name: can_adapter
+  full_name: ST Nucleo G473RC
+  vendor: st
+  socs:
+    - name: stm32g473xx

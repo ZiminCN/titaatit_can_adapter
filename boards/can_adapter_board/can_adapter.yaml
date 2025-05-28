@@ -1,11 +1,10 @@
-identifier: nucleo_g474re
-name: ST Nucleo G474RE
+identifier: can_adapter
+name: ST Nucleo G473RC
 type: mcu
 arch: arm
 toolchain:
   - zephyr
   - gnuarmemb
-  - xtools
 ram: 128
 flash: 256
 supported:
@@ -25,3 +24,4 @@ supported:
   - dma
   - can
   - canfd
+vendor: st

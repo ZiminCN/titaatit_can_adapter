@@ -44,11 +44,23 @@ class CAN {
                 ~CAN() = default;
                 static std::unique_ptr<CAN> getInstance();
                 bool init();
+                static void any_tx_callback(const struct device *dev, int error, void *user_data);
+                int send_can_msg(const struct device *dev, const struct can_frame *frame);
+                int add_can_filter(const struct device *dev, k_msgq *msgq, const struct can_filter *filter);
+                int add_can_filter(const struct device *dev, const struct can_filter *filter, can_rx_callback_t callback);
+                std::unique_ptr<can_bus_status> get_can_bus_status(const struct device *dev);
+                static const struct device *const get_canfd_1_dev();
+                static const struct device *const get_canfd_2_dev();
+                static const struct device *const get_canfd_3_dev();
+                bool reset_can_filter(const struct device *dev);
 
         private:
                 static std::unique_ptr<CAN> Instance;
                 CAN(const CAN&) = delete;
                 CAN& operator=(const CAN&) = delete;
+                static std::unique_ptr<can_bus_status> canfd_1_dev_bus_status;
+                static std::unique_ptr<can_bus_status> canfd_2_dev_bus_status;
+                static std::unique_ptr<can_bus_status> canfd_3_dev_bus_status;
 };
 
 

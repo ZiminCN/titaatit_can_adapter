@@ -116,8 +116,16 @@
 	status = "okay";
 };
 
+// facan clocks reference RM0440:"RCC_APB1ENR1", "RCC_CCIPR",
+//            "./doc/CANFD参考.png" and "./doc/CANFD参考2.png"
+// bit 25: FDCANEN, 1 << 25 = 0x02000000
+// HSE: 0
+// PLL_Q: 1
+// PCLK: 2
+// Reserved: 3
 &fdcan1 {
-	clocks = <&rcc STM32_CLOCK(APB1, 25U)>;
+	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
+		 <&rcc STM32_SRC_PLL_Q FDCAN_SEL(1)>;
 	pinctrl-0 = <&fdcan1_rx_pb8 &fdcan1_tx_pb9>;
 	pinctrl-names = "default";
 	bus-speed = <1000000>;
@@ -127,7 +135,8 @@
 	status = "okay";
 };
 &fdcan2 {
-	clocks = <&rcc STM32_CLOCK(APB1, 25U)>;
+	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
+		 <&rcc STM32_SRC_PLL_Q FDCAN_SEL(1)>;
 	pinctrl-0 = <&fdcan2_rx_pb12 &fdcan2_tx_pb13>;
 	pinctrl-names = "default";
 	bus-speed = <1000000>;
@@ -137,11 +146,12 @@
 	status = "okay";
 };
 &fdcan3 {
-	clocks = <&rcc STM32_CLOCK(APB1, 25U)>;
+	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
+		 <&rcc STM32_SRC_PLL_Q FDCAN_SEL(1)>;
 	pinctrl-0 = <&fdcan3_rx_pb3 &fdcan3_tx_pb4>;
 	pinctrl-names = "default";
 	bus-speed = <1000000>;
-	bus-speed-data = <8000000>;
+	bus-speed-data = <5000000>;
 	sample-point = <800>;
 	sample-point-data = <750>;
 	status = "okay";

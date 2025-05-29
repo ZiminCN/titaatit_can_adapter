@@ -117,8 +117,7 @@
 };
 
 &fdcan1 {
-	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
-		 <&rcc STM32_SRC_PCLK FDCAN_SEL(2)>;
+	clocks = <&rcc STM32_CLOCK(APB1, 25U)>;
 	pinctrl-0 = <&fdcan1_rx_pb8 &fdcan1_tx_pb9>;
 	pinctrl-names = "default";
 	bus-speed = <1000000>;
@@ -128,8 +127,7 @@
 	status = "okay";
 };
 &fdcan2 {
-	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
-		 <&rcc STM32_SRC_PCLK FDCAN_SEL(2)>;
+	clocks = <&rcc STM32_CLOCK(APB1, 25U)>;
 	pinctrl-0 = <&fdcan2_rx_pb12 &fdcan2_tx_pb13>;
 	pinctrl-names = "default";
 	bus-speed = <1000000>;
@@ -139,8 +137,7 @@
 	status = "okay";
 };
 &fdcan3 {
-	clocks = <&rcc STM32_CLOCK_BUS_APB1 0x02000000>,
-		 <&rcc STM32_SRC_PCLK FDCAN_SEL(2)>;
+	clocks = <&rcc STM32_CLOCK(APB1, 25U)>;
 	pinctrl-0 = <&fdcan3_rx_pb3 &fdcan3_tx_pb4>;
 	pinctrl-names = "default";
 	bus-speed = <1000000>;

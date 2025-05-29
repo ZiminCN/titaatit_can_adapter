@@ -23,12 +23,13 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 
-LOG_MODULE_REGISTER(main, CONFIG_TITA_ADAPTER_LOG_LEVEL);
+LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 int main(void){
 	LOG_INF("Hello World! I am %s", CONFIG_BOARD);
 
 	while(1){
+		LOG_INF("Idle...");
 		k_sleep(K_SECONDS(1));
 	}
 	

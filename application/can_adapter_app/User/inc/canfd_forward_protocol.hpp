@@ -13,40 +13,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __FSM_HPP__
-#define __FSM_HPP__
+#ifndef __CANFD_PROTOCOL_HPP__
+#define __CANFD_PROTOCOL_HPP__
 
-#include <zephyr/drivers/gpio.h>
-#include <zephyr/drivers/hwinfo.h>
-#include <zephyr/kernel.h>
-#include <zephyr/smf.h>
+#incluce < zephyr / kernel.h>
+#include <zephyr/device.h>
 
-#define DEFAULT_RATE  10
-#define DIRECT_RATE   500
-#define WORK_RATE     1000
-#define SELFTEST_RATE 100
-#define READY_RATE    10
-#define FAULT_RATE    5
-#define SLEEP_RATE    1
-
-enum fsm_state_t {
-	FSM_INIT_STATE = 0x00,
-	FSM_DATA_FORWARD_STATE,
-	FSM_SLEEP_STATE,
-};
+#include "Common.hpp"
+#include <memory>
 
 typedef struct {
-	struct smf_ctx ctx;
-} fsm_todo_list_t;
+	bool is_enable;
+	uint32_t extern_port_dev_can_id_min;
+	uint32_t extern_port_dev_can_id_max;
+	bool is_tx2master;
+	bool is_tx2slave;
+	bool is_tx2peripheral;
+} AdapterDataT;
 
-class FSM
+class CANFD_FORWARD_PROTOCOL
 {
       public:
-	FSM() = default;
-	~FSM() = default;
+	CANFD_FORWARD_PROTOCOL() = default;
+	~CANFD_FORWARD_PROTOCOL() = default;
 
       private:
-	static std::unique_ptr<FSM> Instance;
+	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;
+	AdapterDataT adapter_data2master;
+	AdapterDataT adapter_data2slave;
 };
 
-#endif // __FSM_HPP__
+#endif // __CANFD_PROTOCOL_HPP__

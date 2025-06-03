@@ -16,27 +16,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <zephyr/drivers/gpio.h>
 
 #include <zephyr/device.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
+
 #include "can.hpp"
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
-int main(void){
+int main(void)
+{
 	LOG_INF("Hello World! I am %s", CONFIG_BOARD);
 
 	std::unique_ptr<CAN> can_dev = CAN::getInstance();
-	
+
 	can_dev->init();
 
-	while(1){
+	while (1) {
 		LOG_INF("Idle...");
 		k_sleep(K_SECONDS(1));
 	}
-	
+
 	return 0;
 }

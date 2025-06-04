@@ -23,7 +23,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 
-#include "can.hpp"
+#include "fsm.hpp"
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
@@ -31,9 +31,9 @@ int main(void)
 {
 	LOG_INF("Hello World! I am %s", CONFIG_BOARD);
 
-	std::unique_ptr<CAN> can_dev = CAN::getInstance();
-
-	can_dev->init();
+	std::unique_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+	
+	fsm_driver_handle->fsm_init(FSM_INIT_STATE);
 
 	while (1) {
 		LOG_INF("Idle...");

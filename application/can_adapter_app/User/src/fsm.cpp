@@ -37,21 +37,37 @@ K_THREAD_STACK_DEFINE(fsm_stack_area, FSM_STACK_SIZE);
 void FSM::fsm_init_entry(void *obj)
 {
 	ARG_UNUSED(obj);
+        LOG_INF("FSM init entry");
+
+        // std::unique_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+
+        // timer init
+
+        // timer start
+
+        // fsm_driver_handle->fsm_set_frequency(DEFAULT_RATE);
 }
 
 void FSM::fsm_init_run(void *obj)
 {
 	ARG_UNUSED(obj);
+        LOG_INF("FSM init run");
+
+        // std::unique_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+
+        // fsm_driver_handle->set_fsm_state(std::move(fsm_driver_handle->fsm_work), FSM_DATA_FORWARD_PROCESS_STATE);
 }
 
 void FSM::fsm_init_exit(void *obj)
 {
 	ARG_UNUSED(obj);
+        LOG_INF("FSM init exit");
 }
 
 void FSM::fsm_data_forward_process_entry(void *obj)
 {
 	ARG_UNUSED(obj);
+        LOG_INF("FSM data forward process entry");
 }
 
 void FSM::fsm_data_forward_process_run(void *obj)
@@ -151,6 +167,7 @@ void FSM::device_timing_freq_process(std::unique_ptr<FSM> fsm_handle, struct fsm
 
 void FSM::hardware_init()
 {
+        this->can_driver_handle->init();
 }
 
 void FSM::pre_init()

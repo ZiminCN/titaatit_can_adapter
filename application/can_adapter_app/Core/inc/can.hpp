@@ -43,6 +43,8 @@ class CAN
 
 	};
 	~CAN() = default;
+	CAN(const CAN &) = delete;
+	CAN &operator=(const CAN &) = delete;
 	static std::unique_ptr<CAN> getInstance();
 	bool init();
 	static void any_tx_callback(const struct device *dev, int error, void *user_data);
@@ -58,8 +60,6 @@ class CAN
 
       private:
 	static std::unique_ptr<CAN> Instance;
-	CAN(const CAN &) = delete;
-	CAN &operator=(const CAN &) = delete;
 	static std::unique_ptr<can_bus_status> canfd_1_dev_bus_status;
 	static std::unique_ptr<can_bus_status> canfd_2_dev_bus_status;
 	static std::unique_ptr<can_bus_status> canfd_3_dev_bus_status;

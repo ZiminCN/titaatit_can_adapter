@@ -21,6 +21,7 @@
 #include <zephyr/kernel.h>
 
 #include "Common.hpp"
+#include "timer.hpp"
 #include <memory>
 
 typedef struct {
@@ -42,6 +43,8 @@ class TIMER
       public:
 	TIMER() = default;
 	~TIMER() = default;
+	TIMER(const TIMER &) = delete;
+	TIMER &operator=(const TIMER &) = delete;
 	static std::unique_ptr<TIMER> getInstance();
 	void timer_init(struct k_timer *timer, k_timer_expiry_t expiry_fn, k_timer_stop_t stop_fn);
 	void timer_start(struct k_timer *timer, k_timeout_t duration, k_timeout_t period);
@@ -65,8 +68,6 @@ class TIMER
 	static std::unique_ptr<TIMER> Instance;
 	static std::unique_ptr<TIMER_FREQ_T> timer_freq_cfg;
 	static std::unique_ptr<TIMER_MANGEMENT_GPOUP_T> timer_management_group;
-	TIMER(const TIMER &) = delete;
-	TIMER &operator=(const TIMER &) = delete;
 };
 
 #endif // __TIMER_HPP__

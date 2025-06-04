@@ -1,5 +1,20 @@
 {
         "files.associations": {
-                "locale": "cpp"
+                "locale": "cpp",
+                "__verbose_abort": "cpp",
+                "cmath": "cpp",
+                "cstdint": "cpp",
+                "cstdlib": "cpp",
+                "cstring": "cpp",
+                "ctime": "cpp",
+                "initializer_list": "cpp",
+                "iosfwd": "cpp",
+                "limits": "cpp",
+                "new": "cpp",
+                "ratio": "cpp",
+                "stdexcept": "cpp",
+                "typeinfo": "cpp",
+                "variant": "cpp",
+                "algorithm": "cpp"
         }
 }

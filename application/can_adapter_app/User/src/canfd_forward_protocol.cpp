@@ -12,3 +12,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#include "canfd_forward_protocol.hpp"
+
+#include <zephyr/logging/log.h>
+
+std::unique_ptr<CANFD_FORWARD_PROTOCOL> CANFD_FORWARD_PROTOCOL::Instance =
+	std::make_unique<CANFD_FORWARD_PROTOCOL>();

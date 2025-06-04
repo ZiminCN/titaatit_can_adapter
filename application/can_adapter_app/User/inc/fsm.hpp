@@ -16,10 +16,13 @@
 #ifndef __FSM_HPP__
 #define __FSM_HPP__
 
-#include <zephyr/drivers/gpio.h>
+#include <zephyr/device.h>
 #include <zephyr/drivers/hwinfo.h>
 #include <zephyr/kernel.h>
 #include <zephyr/smf.h>
+
+#include "timer.hpp"
+#include <memory>
 
 #define DEFAULT_RATE  10
 #define DIRECT_RATE   500
@@ -31,7 +34,7 @@
 
 enum fsm_state_t {
 	FSM_INIT_STATE = 0x00,
-	FSM_DATA_FORWARD_STATE,
+	FSM_DATA_FORWARD_PROCESS_STATE,
 	FSM_SLEEP_STATE,
 };
 
@@ -39,14 +42,60 @@ typedef struct {
 	struct smf_ctx ctx;
 } fsm_todo_list_t;
 
+typedef struct {
+	float dt;	    // 25us - 100ms
+	uint32_t frequency; // 10Hz - 40kHz
+	uint32_t timestamp; // accuracy 1us
+
+	// uint64_t cyclestamp
+	uint32_t last_hw_cycle, interval_hw_cycle, overflow_count;
+	uint32_t cycle_count;
+} FSM_FREQ_T;
+
+typedef struct {
+	struct k_timer fsm_timer;
+	FSM_FREQ_T fsm_freq;
+} fsm_device_t;
+
+struct fsm_work_t {
+	struct k_work work;
+	fsm_todo_list_t fsm_todo_list;
+	fsm_device_t fsm_device;
+};
+
 class FSM
 {
       public:
 	FSM() = default;
 	~FSM() = default;
+	FSM(const FSM &) = delete;
+	FSM &operator=(const FSM &) = delete;
+	static std::unique_ptr<FSM> getInstance();
+	enum fsm_state_t fsm_get_state(fsm_todo_list_t *fsm_todo_list);
+	void fsm_init(const enum fsm_state_t state);
+	void fsm_set_frequency(uint32_t frequency);
+
+	static void fsm_init_entry(void *obj);
+	static void fsm_init_run(void *obj);
+	static void fsm_init_exit(void *obj);
+	static void fsm_data_forward_process_entry(void *obj);
+	static void fsm_data_forward_process_run(void *obj);
+	static void fsm_sleep_entry(void *obj);
+	static void fsm_sleep_run(void *obj);
+	static void fsm_sleep_exit(void *obj);
 
       private:
 	static std::unique_ptr<FSM> Instance;
+	static std::unique_ptr<fsm_work_t> fsm_work;
+	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
+
+	void device_timing_freq_process(std::unique_ptr<FSM> fsm_handle,
+					struct fsm_work_t *fsm_work);
+	void hardware_init();
+	void pre_init();
+	static void fsm_timer_callback(struct k_timer *timer_id);
+	void set_fsm_state(std::unique_ptr<fsm_work_t> fsm_work, const enum fsm_state_t state);
+	static void fsm_handle(struct k_work *work);
 };
 
 #endif // __FSM_HPP__

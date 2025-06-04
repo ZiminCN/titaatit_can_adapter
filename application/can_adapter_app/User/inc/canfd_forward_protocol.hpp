@@ -16,8 +16,8 @@
 #ifndef __CANFD_PROTOCOL_HPP__
 #define __CANFD_PROTOCOL_HPP__
 
-#incluce < zephyr / kernel.h>
 #include <zephyr/device.h>
+#include <zephyr/kernel.h>
 
 #include "Common.hpp"
 #include <memory>
@@ -36,6 +36,8 @@ class CANFD_FORWARD_PROTOCOL
       public:
 	CANFD_FORWARD_PROTOCOL() = default;
 	~CANFD_FORWARD_PROTOCOL() = default;
+	CANFD_FORWARD_PROTOCOL(const CANFD_FORWARD_PROTOCOL &) = delete;
+	CANFD_FORWARD_PROTOCOL &operator=(const CANFD_FORWARD_PROTOCOL &) = delete;
 
       private:
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;

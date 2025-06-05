@@ -71,7 +71,7 @@ class FSM
 	~FSM() = default;
 	FSM(const FSM &) = delete;
 	FSM &operator=(const FSM &) = delete;
-	static std::unique_ptr<FSM> getInstance();
+	static std::shared_ptr<FSM> getInstance();
 	enum fsm_state_t fsm_get_state(fsm_todo_list_t *fsm_todo_list);
 	void fsm_init(const enum fsm_state_t state);
 	void fsm_set_frequency(uint32_t frequency);
@@ -86,18 +86,18 @@ class FSM
 	static void fsm_sleep_exit(void *obj);
 
       private:
-	static std::unique_ptr<FSM> Instance;
-	static std::unique_ptr<fsm_work_t> fsm_work;
+	static std::shared_ptr<FSM> Instance;
+	static std::shared_ptr<fsm_work_t> fsm_work;
 
 	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
 	std::unique_ptr<CAN> can_driver_handle = CAN::getInstance();
 
-	void device_timing_freq_process(std::unique_ptr<FSM> fsm_handle,
+	void device_timing_freq_process(std::shared_ptr<FSM> fsm_handle,
 					struct fsm_work_t *fsm_work);
 	void hardware_init();
 	void pre_init();
 	static void fsm_timer_callback(struct k_timer *timer_id);
-	void set_fsm_state(std::unique_ptr<fsm_work_t> fsm_work, const enum fsm_state_t state);
+	void set_fsm_state(std::shared_ptr<fsm_work_t> fsm_work, const enum fsm_state_t state);
 	static void fsm_handle(struct k_work *work);
 };
 

@@ -15,6 +15,24 @@
                 "stdexcept": "cpp",
                 "typeinfo": "cpp",
                 "variant": "cpp",
-                "algorithm": "cpp"
+                "algorithm": "cpp",
+                "__bit_reference": "cpp",
+                "__locale": "cpp",
+                "bitset": "cpp",
+                "complex": "cpp",
+                "cstdarg": "cpp",
+                "cstdio": "cpp",
+                "cwchar": "cpp",
+                "cwctype": "cpp",
+                "execution": "cpp",
+                "memory": "cpp",
+                "ios": "cpp",
+                "istream": "cpp",
+                "mutex": "cpp",
+                "print": "cpp",
+                "sstream": "cpp",
+                "streambuf": "cpp",
+                "string": "cpp",
+                "string_view": "cpp"
         }
 }

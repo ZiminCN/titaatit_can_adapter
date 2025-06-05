@@ -19,11 +19,11 @@
 
 LOG_MODULE_REGISTER(fsm, LOG_LEVEL_INF);
 
-std::unique_ptr<FSM> FSM::Instance = std::make_unique<FSM>();
-std::unique_ptr<fsm_work_t> FSM::fsm_work = std::make_unique<fsm_work_t>();
-std::unique_ptr<FSM> FSM::getInstance()
+std::shared_ptr<FSM> FSM::Instance = std::make_unique<FSM>();
+std::shared_ptr<fsm_work_t> FSM::fsm_work = std::make_unique<fsm_work_t>();
+std::shared_ptr<FSM> FSM::getInstance()
 {
-	return std::move(FSM::Instance);
+	return FSM::Instance;
 }
 
 #define FSM_STACK_SIZE	   4096
@@ -39,13 +39,13 @@ void FSM::fsm_init_entry(void *obj)
 	ARG_UNUSED(obj);
 	LOG_INF("FSM init entry");
 
-	// std::unique_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
 
 	// timer init
 
 	// timer start
 
-	// fsm_driver_handle->fsm_set_frequency(DEFAULT_RATE);
+	fsm_driver_handle->fsm_set_frequency(DEFAULT_RATE);
 }
 
 void FSM::fsm_init_run(void *obj)
@@ -53,10 +53,9 @@ void FSM::fsm_init_run(void *obj)
 	ARG_UNUSED(obj);
 	LOG_INF("FSM init run");
 
-	// std::unique_ptr<FSM> fsm_driver_handle = FSM::getInstance();
-
-	// fsm_driver_handle->set_fsm_state(std::move(fsm_driver_handle->fsm_work),
-	// FSM_DATA_FORWARD_PROCESS_STATE);
+	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+	ARG_UNUSED(fsm_driver_handle);
+	fsm_driver_handle->set_fsm_state(fsm_work, FSM_DATA_FORWARD_PROCESS_STATE);
 }
 
 void FSM::fsm_init_exit(void *obj)
@@ -105,7 +104,7 @@ enum fsm_state_t FSM::fsm_get_state(fsm_todo_list_t *fsm_todo_list)
 	return static_cast<fsm_state_t>(fsm_todo_list->ctx.current - &fsm_states[0]);
 }
 
-void FSM::device_timing_freq_process(std::unique_ptr<FSM> fsm_handle, struct fsm_work_t *fsm_work)
+void FSM::device_timing_freq_process(std::shared_ptr<FSM> fsm_handle, struct fsm_work_t *fsm_work)
 {
 
 	uint32_t now, interval;
@@ -186,19 +185,19 @@ void FSM::fsm_handle(struct k_work *work)
 {
 	struct fsm_work_t *fsm_work = CONTAINER_OF(work, struct fsm_work_t, work);
 
-	std::unique_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
 
-	fsm_driver_handle->device_timing_freq_process(std::move(fsm_driver_handle), fsm_work);
+	fsm_driver_handle->device_timing_freq_process(fsm_driver_handle, fsm_work);
 
 	smf_run_state(&fsm_driver_handle->fsm_work->fsm_todo_list.ctx);
 
-	// fsm_driver_handle->timer_driver_handle->set_timer_freq_cfg_cycle_count(
-	// 	fsm_driver_handle->timer_driver_handle->get_timer_freq_cfg_cycle_count() + 1);
-	// fsm_driver_handle->fsm_work->fsm_device.fsm_freq.cycle_count =
-	// 	fsm_driver_handle->timer_driver_handle->get_timer_freq_cfg_cycle_count();
+	fsm_driver_handle->timer_driver_handle->set_timer_freq_cfg_cycle_count(
+		fsm_driver_handle->timer_driver_handle->get_timer_freq_cfg_cycle_count() + 1);
+	fsm_driver_handle->fsm_work->fsm_device.fsm_freq.cycle_count =
+		fsm_driver_handle->timer_driver_handle->get_timer_freq_cfg_cycle_count();
 }
 
-void FSM::set_fsm_state(std::unique_ptr<fsm_work_t> fsm_work, const enum fsm_state_t state)
+void FSM::set_fsm_state(std::shared_ptr<fsm_work_t> fsm_work, const enum fsm_state_t state)
 {
 	smf_set_state(&this->fsm_work->fsm_todo_list.ctx, &fsm_states[state]);
 }

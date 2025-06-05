@@ -21,7 +21,8 @@ LOG_MODULE_REGISTER(timer, LOG_LEVEL_INF);
 
 std::unique_ptr<TIMER> TIMER::Instance = std::make_unique<TIMER>();
 std::unique_ptr<TIMER_FREQ_T> TIMER::timer_freq_cfg = std::make_unique<TIMER_FREQ_T>();
-std::unique_ptr<TIMER_MANGEMENT_GPOUP_T> TIMER::timer_management_group = std::make_unique<TIMER_MANGEMENT_GPOUP_T>();
+std::unique_ptr<TIMER_MANGEMENT_GPOUP_T> TIMER::timer_management_group =
+	std::make_unique<TIMER_MANGEMENT_GPOUP_T>();
 
 std::unique_ptr<TIMER> TIMER::getInstance()
 {
@@ -108,6 +109,7 @@ uint32_t TIMER::get_timer_freq_cfg_cycle_count()
 	return this->timer_freq_cfg->cycle_count;
 }
 
-struct k_timer *TIMER::get_can_adapter_heartbeat_timer(){
+struct k_timer *TIMER::get_can_adapter_heartbeat_timer()
+{
 	return &(this->timer_management_group->can_adapter_heartbeat_timer);
 }

@@ -32,7 +32,7 @@ int main(void)
 	LOG_INF("Hello World! I am %s", CONFIG_BOARD);
 
 	std::unique_ptr<FSM> fsm_driver_handle = FSM::getInstance();
-	
+
 	fsm_driver_handle->fsm_init(FSM_INIT_STATE);
 
 	while (1) {

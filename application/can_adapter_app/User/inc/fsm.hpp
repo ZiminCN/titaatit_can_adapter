@@ -21,8 +21,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/smf.h>
 
-#include "timer.hpp"
 #include "can.hpp"
+#include "timer.hpp"
 #include <memory>
 
 #define DEFAULT_RATE  10
@@ -91,7 +91,6 @@ class FSM
 
 	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
 	std::unique_ptr<CAN> can_driver_handle = CAN::getInstance();
-
 
 	void device_timing_freq_process(std::unique_ptr<FSM> fsm_handle,
 					struct fsm_work_t *fsm_work);

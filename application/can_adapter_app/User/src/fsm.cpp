@@ -74,22 +74,7 @@ void FSM::fsm_data_forward_process_run(void *obj)
 {
 	ARG_UNUSED(obj);
 	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
-	const struct device *canfd_1_dev = fsm_driver_handle->can_driver_handle->get_canfd_1_dev();
-	// fsm_driver_handle->canfd_forward_protocol_handle->test_canfd_send();
-	struct can_frame test_frame;
-	test_frame.id = 0x123U;
-	test_frame.dlc = 8U;
-	test_frame.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
-	test_frame.data[0] = 0x11U;
-	test_frame.data[1] = 0x11U;
-	test_frame.data[2] = 0x11U;
-	test_frame.data[3] = 0x11U;
-	test_frame.data[4] = 0x11U;
-	test_frame.data[5] = 0x11U;
-	test_frame.data[6] = 0x11U;
-	test_frame.data[7] = 0x11U;
-
-	fsm_driver_handle->can_driver_handle->send_can_msg(canfd_1_dev, &test_frame);
+	fsm_driver_handle->canfd_forward_protocol_handle->test_canfd_send();
 	k_sleep(K_MSEC(100));
 }
 

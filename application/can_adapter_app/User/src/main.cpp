@@ -23,6 +23,7 @@
 #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 
+#include "can.hpp"
 #include "fsm.hpp"
 
 LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);

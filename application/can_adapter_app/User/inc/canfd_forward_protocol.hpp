@@ -20,6 +20,8 @@
 #include <zephyr/kernel.h>
 
 #include "Common.hpp"
+#include "can.hpp"
+#include "timer.hpp"
 #include <memory>
 
 typedef struct {
@@ -29,7 +31,19 @@ typedef struct {
 	bool is_tx2master;
 	bool is_tx2slave;
 	bool is_tx2peripheral;
+
+	// canfd protocol
+	uint32_t forward_bus_can_id;
+	struct can_filter filter;
+	can_rx_callback_t callback;
 } AdapterDataT;
+
+typedef struct {
+	bool is_enable;
+	bool is_received_heartbeat;
+	bool is_master_dev;
+	bool is_slave_dev;
+} AdapterHeartBeatT;
 
 class CANFD_FORWARD_PROTOCOL
 {
@@ -38,11 +52,18 @@ class CANFD_FORWARD_PROTOCOL
 	~CANFD_FORWARD_PROTOCOL() = default;
 	CANFD_FORWARD_PROTOCOL(const CANFD_FORWARD_PROTOCOL &) = delete;
 	CANFD_FORWARD_PROTOCOL &operator=(const CANFD_FORWARD_PROTOCOL &) = delete;
+	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> getInstance();
+	bool forward_protocol_init();
+	int test_canfd_send();
 
       private:
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;
-	AdapterDataT adapter_data2master;
-	AdapterDataT adapter_data2slave;
+	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
+	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
+
+	static std::unique_ptr<AdapterDataT> adapter_data2master;
+	static std::unique_ptr<AdapterDataT> adapter_data2slave;
+	static std::unique_ptr<AdapterHeartBeatT> adapter_heart_beat;
 };
 
 #endif // __CANFD_PROTOCOL_HPP__

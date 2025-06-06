@@ -73,6 +73,24 @@ void FSM::fsm_data_forward_process_entry(void *obj)
 void FSM::fsm_data_forward_process_run(void *obj)
 {
 	ARG_UNUSED(obj);
+	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+	const struct device *canfd_1_dev = fsm_driver_handle->can_driver_handle->get_canfd_1_dev();
+	// fsm_driver_handle->canfd_forward_protocol_handle->test_canfd_send();
+	struct can_frame test_frame;
+	test_frame.id = 0x123U;
+	test_frame.dlc = 8U;
+	test_frame.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
+	test_frame.data[0] = 0x11U;
+	test_frame.data[1] = 0x11U;
+	test_frame.data[2] = 0x11U;
+	test_frame.data[3] = 0x11U;
+	test_frame.data[4] = 0x11U;
+	test_frame.data[5] = 0x11U;
+	test_frame.data[6] = 0x11U;
+	test_frame.data[7] = 0x11U;
+
+	fsm_driver_handle->can_driver_handle->send_can_msg(canfd_1_dev, &test_frame);
+	k_sleep(K_MSEC(100));
 }
 
 void FSM::fsm_sleep_entry(void *obj)
@@ -165,13 +183,23 @@ void FSM::device_timing_freq_process(std::shared_ptr<FSM> fsm_handle, struct fsm
 		this->timer_driver_handle->get_timer_freq_cfg_timestamp();
 }
 
-void FSM::hardware_init()
+bool FSM::hardware_init()
 {
-	this->can_driver_handle->init();
+	bool ret;
+	ret = this->can_driver_handle->init();
+	if (!ret) {
+		LOG_ERR("CAN driver init failed");
+		return false;
+	}
+
+	return true;
 }
 
-void FSM::pre_init()
+bool FSM::pre_init()
 {
+	this->canfd_forward_protocol_handle->forward_protocol_init();
+
+	return true;
 }
 
 void FSM::fsm_timer_callback(struct k_timer *timer_id)
@@ -204,6 +232,7 @@ void FSM::set_fsm_state(std::shared_ptr<fsm_work_t> fsm_work, const enum fsm_sta
 
 void FSM::fsm_init(const enum fsm_state_t state)
 {
+	bool ret;
 	const struct k_work_queue_config workq_cfg = {
 		.name = "workq",
 		.no_yield = true,
@@ -214,9 +243,15 @@ void FSM::fsm_init(const enum fsm_state_t state)
 	k_work_queue_start(&fsm_work_q, fsm_stack_area, K_THREAD_STACK_SIZEOF(fsm_stack_area),
 			   FSM_WORKQ_PRIORITY, &workq_cfg);
 
-	this->hardware_init();
+	ret = this->hardware_init();
+	if (!ret) {
+		LOG_ERR("hardware_init failed");
+	}
 
-	this->pre_init();
+	ret = this->pre_init();
+	if (!ret) {
+		LOG_ERR("pre_init failed");
+	}
 
 	k_work_init(&this->fsm_work->work, fsm_handle);
 

@@ -61,6 +61,10 @@ class CAN
 	static std::shared_ptr<can_bus_status> canfd_1_dev_bus_status;
 	static std::shared_ptr<can_bus_status> canfd_2_dev_bus_status;
 	static std::shared_ptr<can_bus_status> canfd_3_dev_bus_status;
+	static void auto_recovery_can_bus_status_callback(const struct device *dev,
+							  enum can_state state,
+							  struct can_bus_err_cnt err_cnt,
+							  void *user_data);
 };
 
 #endif // __CAN_HPP__

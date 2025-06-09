@@ -75,6 +75,7 @@ void FSM::fsm_data_forward_process_run(void *obj)
 	ARG_UNUSED(obj);
 	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
 	fsm_driver_handle->canfd_forward_protocol_handle->test_canfd_send();
+
 	k_sleep(K_MSEC(100));
 }
 

@@ -35,6 +35,8 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2master =
 		.is_tx2master = true,
 		.is_tx2slave = false,
 		.is_tx2peripheral = false,
+		.forward_data_cnt = 0x0U,
+		.loop_back_forward_data_cnt = 0x0U,
 		.forward_bus_can_id = 0x1U,
 		.filter =
 			{
@@ -57,6 +59,8 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2slave =
 		.is_tx2master = true,
 		.is_tx2slave = false,
 		.is_tx2peripheral = false,
+		.forward_data_cnt = 0x0U,
+		.loop_back_forward_data_cnt = 0x0U,
 		.forward_bus_can_id = 0x2U,
 		.filter =
 			{
@@ -124,11 +128,11 @@ int CANFD_FORWARD_PROTOCOL::test_canfd_send()
 		.data = {0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03},
 	};
 
-	// ret = this->can_driver_handle->send_can_msg(canfd_1_dev, &canfd_1_msg);
-	// if (ret != 0) {
-	// 	LOG_ERR("send canfd_1_msg failed, err code:[%d]", ret);
-	// 	return false;
-	// }
+	ret = this->can_driver_handle->send_can_msg(canfd_1_dev, &canfd_1_msg);
+	if (ret != 0) {
+		LOG_ERR("send canfd_1_msg failed, err code:[%d]", ret);
+		return false;
+	}
 
 	ret = this->can_driver_handle->send_can_msg(canfd_2_dev, &canfd_2_msg);
 	if (ret != 0) {
@@ -136,11 +140,11 @@ int CANFD_FORWARD_PROTOCOL::test_canfd_send()
 		return false;
 	}
 
-	// ret = this->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_3_msg);
-	// if (ret != 0) {
-	// 	LOG_ERR("send canfd_3_msg failed, err code:[%d]", ret);
-	// 	return false;
-	// }
+	ret = this->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_3_msg);
+	if (ret != 0) {
+		LOG_ERR("send canfd_3_msg failed, err code:[%d]", ret);
+		return false;
+	}
 
 	return true;
 }

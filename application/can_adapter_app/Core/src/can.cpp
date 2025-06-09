@@ -83,6 +83,13 @@ bool CAN::init()
 	can_set_mode(canfd_2_dev, CAN_MODE_FD);
 	can_set_mode(canfd_3_dev, CAN_MODE_FD);
 
+	can_set_state_change_callback(canfd_1_dev, this->auto_recovery_can_bus_status_callback,
+				      NULL);
+	can_set_state_change_callback(canfd_2_dev, this->auto_recovery_can_bus_status_callback,
+				      NULL);
+	can_set_state_change_callback(canfd_3_dev, this->auto_recovery_can_bus_status_callback,
+				      NULL);
+
 	ret = can_start(canfd_1_dev);
 	if (ret < 0) {
 		LOG_ERR("Failed to start CANFD device 1: %d", ret);
@@ -216,4 +223,18 @@ bool CAN::reset_can_filter(const struct device *dev)
 	} while (flag);
 
 	return true;
+}
+
+void CAN::auto_recovery_can_bus_status_callback(const struct device *dev, enum can_state state,
+						struct can_bus_err_cnt err_cnt, void *user_data)
+{
+	ARG_UNUSED(user_data);
+	ARG_UNUSED(err_cnt);
+
+	if (state == CAN_STATE_BUS_OFF) {
+
+		if (can_recover(dev, K_MSEC(100)) != 0) {
+			LOG_INF("Recovery timed out\n");
+		}
+	}
 }

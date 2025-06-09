@@ -31,6 +31,8 @@ typedef struct {
 	bool is_tx2master;
 	bool is_tx2slave;
 	bool is_tx2peripheral;
+	uint64_t forward_data_cnt;
+	uint64_t loop_back_forward_data_cnt;
 
 	// canfd protocol
 	uint32_t forward_bus_can_id;

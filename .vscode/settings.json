@@ -33,6 +33,8 @@
                 "sstream": "cpp",
                 "streambuf": "cpp",
                 "string": "cpp",
-                "string_view": "cpp"
+                "string_view": "cpp",
+                "array": "cpp",
+                "vector": "cpp"
         }
 }

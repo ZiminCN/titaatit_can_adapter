@@ -26,8 +26,8 @@
 
 typedef struct {
 	bool is_enable;
-	uint32_t extern_port_dev_can_id_min;
-	uint32_t extern_port_dev_can_id_max;
+	uint32_t filter_can_id_min;
+	uint32_t filter_can_id_max;
 	bool is_tx2master;
 	bool is_tx2slave;
 	bool is_tx2peripheral;
@@ -36,6 +36,7 @@ typedef struct {
 
 	// canfd protocol
 	uint32_t forward_bus_can_id;
+	uint8_t forward_bus_can_id_offset_max;
 	struct can_filter filter;
 	can_rx_callback_t callback;
 } AdapterDataT;

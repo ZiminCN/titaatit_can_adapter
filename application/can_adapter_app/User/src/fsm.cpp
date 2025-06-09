@@ -74,9 +74,10 @@ void FSM::fsm_data_forward_process_run(void *obj)
 {
 	ARG_UNUSED(obj);
 	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
-	fsm_driver_handle->canfd_forward_protocol_handle->test_canfd_send();
 
-	k_sleep(K_MSEC(100));
+	// fsm_driver_handle->canfd_forward_protocol_handle->test_canfd_send();
+
+	// k_sleep(K_MSEC(100));
 }
 
 void FSM::fsm_sleep_entry(void *obj)
@@ -181,9 +182,42 @@ bool FSM::hardware_init()
 	return true;
 }
 
+void FSM::test_callback(const struct device *dev, struct can_frame *frame, void *user_data)
+{
+	ARG_UNUSED(dev);
+	ARG_UNUSED(frame);
+	ARG_UNUSED(user_data);
+	LOG_INF("CANFD_FORWARD_PROTOCOL::adapter_data2slave callback");
+
+	bool ret;
+
+	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+
+	const struct device *canfd_3_dev = fsm_driver_handle->can_driver_handle->get_canfd_3_dev();
+
+	struct can_frame canfd_3_msg = {
+		.id = 0x101U,
+		.dlc = can_bytes_to_dlc(8),
+		.flags = CAN_FRAME_FDF | CAN_FRAME_BRS,
+		.data = {0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01},
+	};
+
+	ret = fsm_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_3_msg);
+	if (ret != 0) {
+		LOG_ERR("send canfd_3_msg failed, err code:[%d]", ret);
+	}
+}
+
 bool FSM::pre_init()
 {
-	this->canfd_forward_protocol_handle->forward_protocol_init();
+	// this->canfd_forward_protocol_handle->forward_protocol_init();
+
+	const struct can_filter motor_param_get_filter = {.id = 0x00, .mask = 0x00, .flags = 0};
+
+	const struct device *canfd_2_dev = this->can_driver_handle->get_canfd_2_dev();
+
+	this->can_driver_handle->add_can_filter(canfd_2_dev, &motor_param_get_filter,
+						&this->test_callback);
 
 	return true;
 }

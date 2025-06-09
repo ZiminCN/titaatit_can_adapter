@@ -102,6 +102,9 @@ class FSM
 	static void fsm_timer_callback(struct k_timer *timer_id);
 	void set_fsm_state(std::shared_ptr<fsm_work_t> fsm_work, const enum fsm_state_t state);
 	static void fsm_handle(struct k_work *work);
+
+	static void test_callback(const struct device *dev, struct can_frame *frame,
+				  void *user_data);
 };
 
 #endif // __FSM_HPP__

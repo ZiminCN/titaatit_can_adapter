@@ -50,7 +50,7 @@ class CAN
 	int add_can_filter(const struct device *dev, k_msgq *msgq, const struct can_filter *filter);
 	int add_can_filter(const struct device *dev, const struct can_filter *filter,
 			   can_rx_callback_t callback);
-	std::shared_ptr<can_bus_status> get_can_bus_status(const struct device *dev);
+	std::unique_ptr<can_bus_status> get_can_bus_status(const struct device *dev);
 	static const struct device *const get_canfd_1_dev();
 	static const struct device *const get_canfd_2_dev();
 	static const struct device *const get_canfd_3_dev();
@@ -58,9 +58,9 @@ class CAN
 
       private:
 	static std::shared_ptr<CAN> Instance;
-	static std::shared_ptr<can_bus_status> canfd_1_dev_bus_status;
-	static std::shared_ptr<can_bus_status> canfd_2_dev_bus_status;
-	static std::shared_ptr<can_bus_status> canfd_3_dev_bus_status;
+	static std::unique_ptr<can_bus_status> canfd_1_dev_bus_status;
+	static std::unique_ptr<can_bus_status> canfd_2_dev_bus_status;
+	static std::unique_ptr<can_bus_status> canfd_3_dev_bus_status;
 	static void auto_recovery_can_bus_status_callback(const struct device *dev,
 							  enum can_state state,
 							  struct can_bus_err_cnt err_cnt,

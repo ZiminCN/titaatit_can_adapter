@@ -27,17 +27,19 @@ std::unique_ptr<CANFD_FORWARD_PROTOCOL> CANFD_FORWARD_PROTOCOL::getInstance()
 	return std::move(CANFD_FORWARD_PROTOCOL::Instance);
 }
 
+static struct can_frame canfd_data2master;
 std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2master =
 	std::make_unique<AdapterDataT>(AdapterDataT{
 		.is_enable = true,
-		.extern_port_dev_can_id_min = 0x10A,
-		.extern_port_dev_can_id_max = 0x10B,
+		.filter_can_id_min = 0x10A,
+		.filter_can_id_max = 0x10B,
 		.is_tx2master = true,
 		.is_tx2slave = false,
 		.is_tx2peripheral = false,
 		.forward_data_cnt = 0x0U,
 		.loop_back_forward_data_cnt = 0x0U,
-		.forward_bus_can_id = 0x1U,
+		.forward_bus_can_id = 0x10U,
+		.forward_bus_can_id_offset_max = 0x08U,
 		.filter =
 			{
 				.id = 0x10A,
@@ -45,34 +47,60 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2master =
 				.flags = CAN_FILTER_IDE,
 			},
 		.callback = [](const struct device *dev, struct can_frame *frame, void *user_data) {
-			ARG_UNUSED(dev);
 			ARG_UNUSED(user_data);
-			ARG_UNUSED(frame);
 			LOG_INF("CANFD_FORWARD_PROTOCOL::adapter_data2master callback");
+
+			std::unique_ptr<CANFD_FORWARD_PROTOCOL> forward_driver_handle =
+				CANFD_FORWARD_PROTOCOL::getInstance();
+			const struct device *canfd_2_dev =
+				forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+
+			// base can id
+			canfd_data2master.id = adapter_data2master->forward_bus_can_id +
+					       (frame->id - adapter_data2master->filter_can_id_min);
+			canfd_data2master.dlc = frame->dlc;
+			canfd_data2master.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
+
+			memcpy(canfd_data2master.data, frame->data, can_dlc_to_bytes(frame->dlc));
+			forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev,
+									       &canfd_data2master);
 		}});
 
+static struct can_frame canfd_data2slave;
 std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2slave =
 	std::make_unique<AdapterDataT>(AdapterDataT{
 		.is_enable = true,
-		.extern_port_dev_can_id_min = 0x10A,
-		.extern_port_dev_can_id_max = 0x10B,
+		.filter_can_id_min = 0x10A,
+		.filter_can_id_max = 0x10B,
 		.is_tx2master = true,
 		.is_tx2slave = false,
 		.is_tx2peripheral = false,
 		.forward_data_cnt = 0x0U,
 		.loop_back_forward_data_cnt = 0x0U,
-		.forward_bus_can_id = 0x2U,
+		.forward_bus_can_id = 0x20U,
+		.forward_bus_can_id_offset_max = 0x08U,
 		.filter =
 			{
 				.id = 0x124,
 				.mask = 0x7FC, // 0x124~0x127
-				.flags = CAN_FILTER_IDE,
+				.flags = 2,
 			},
 		.callback = [](const struct device *dev, struct can_frame *frame, void *user_data) {
-			ARG_UNUSED(dev);
 			ARG_UNUSED(user_data);
-			ARG_UNUSED(frame);
 			LOG_INF("CANFD_FORWARD_PROTOCOL::adapter_data2slave callback");
+
+			// std::unique_ptr<CANFD_FORWARD_PROTOCOL> forward_driver_handle =
+			// CANFD_FORWARD_PROTOCOL::getInstance(); const struct device *canfd_3_dev =
+			// forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+
+			// // base can id
+			// canfd_data2slave.id = adapter_data2slave->forward_bus_can_id + (frame->id
+			// - adapter_data2slave->filter_can_id_min); canfd_data2slave.dlc =
+			// frame->dlc; canfd_data2slave.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
+
+			// memcpy(canfd_data2slave.data, frame->data, can_dlc_to_bytes(frame->dlc));
+			// forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev,
+			// &canfd_data2slave);
 		}});
 
 std::unique_ptr<AdapterHeartBeatT> CANFD_FORWARD_PROTOCOL::adapter_heart_beat =
@@ -87,12 +115,14 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 {
 	int i_ret;
 
-	const struct device *canfd_1_dev = this->can_driver_handle->get_canfd_1_dev();
-	// const struct device *canfd_2_dev = this->can_driver_handle->get_canfd_2_dev();
-	// const struct device *canfd_3_dev = this->can_driver_handle->get_canfd_3_dev();
+	const struct device *canfd_2_dev = this->can_driver_handle->get_canfd_2_dev();
+	const struct device *canfd_3_dev = this->can_driver_handle->get_canfd_3_dev();
 
-	i_ret = this->can_driver_handle->add_can_filter(canfd_1_dev, &adapter_data2master->filter,
+	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &adapter_data2master->filter,
 							adapter_data2master->callback);
+
+	i_ret = this->can_driver_handle->add_can_filter(canfd_3_dev, &adapter_data2slave->filter,
+							adapter_data2slave->callback);
 
 	return true;
 }

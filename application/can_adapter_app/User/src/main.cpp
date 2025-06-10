@@ -37,7 +37,6 @@ int main(void)
 	fsm_driver_handle->fsm_init(FSM_INIT_STATE);
 
 	while (1) {
-		LOG_INF("Idle...");
 		k_sleep(K_SECONDS(1));
 	}
 

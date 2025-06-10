@@ -27,7 +27,7 @@ std::shared_ptr<CAN> CAN::Instance = std::make_unique<CAN>();
 
 std::shared_ptr<CAN> CAN::getInstance()
 {
-	return std::move(CAN::Instance);
+	return Instance;
 }
 
 std::unique_ptr<can_bus_status> CAN::canfd_1_dev_bus_status =
@@ -127,14 +127,14 @@ const struct device *const CAN::get_canfd_3_dev()
 	return canfd_3_dev;
 }
 
-std::unique_ptr<can_bus_status> CAN::get_can_bus_status(const struct device *dev)
+can_bus_status *CAN::get_can_bus_status(const struct device *dev)
 {
 	if (dev == canfd_1_dev) {
-		return std::move(canfd_1_dev_bus_status);
+		return canfd_1_dev_bus_status.get();
 	} else if (dev == canfd_2_dev) {
-		return std::move(canfd_2_dev_bus_status);
+		return canfd_2_dev_bus_status.get();
 	} else if (dev == canfd_3_dev) {
-		return std::move(canfd_3_dev_bus_status);
+		return canfd_3_dev_bus_status.get();
 	}
 
 	LOG_ERR("Unknown CAN device!");
@@ -147,7 +147,7 @@ void CAN::any_tx_callback(const struct device *dev, int error, void *user_data)
 
 	std::shared_ptr<CAN> can_api = CAN::getInstance();
 
-	std::unique_ptr<can_bus_status> can_bus_status = can_api->get_can_bus_status(dev);
+	can_bus_status *can_bus_status = can_api->get_can_bus_status(dev);
 
 	if (error == 0) {
 		can_bus_status->bus_tx_count += 1;
@@ -158,7 +158,7 @@ void CAN::any_tx_callback(const struct device *dev, int error, void *user_data)
 
 int CAN::send_can_msg(const struct device *dev, const struct can_frame *frame)
 {
-	return can_send(dev, frame, K_MSEC(20), any_tx_callback, nullptr);
+	return can_send(dev, frame, K_NO_WAIT, any_tx_callback, nullptr);
 }
 
 int CAN::add_can_filter(const struct device *dev, k_msgq *msgq, const struct can_filter *filter)
@@ -171,7 +171,9 @@ int CAN::add_can_filter(const struct device *dev, k_msgq *msgq, const struct can
 		return filter_id;
 	}
 
-	std::unique_ptr<can_bus_status> can_bus_status = this->get_can_bus_status(dev);
+	LOG_INF("Add CAN filter ID:[%x]!", filter_id);
+
+	can_bus_status *can_bus_status = this->get_can_bus_status(dev);
 
 	can_bus_status->filter_id_array[can_bus_status->filter_id_array_count] = filter_id;
 	can_bus_status->filter_id_array_count += 1;
@@ -190,7 +192,9 @@ int CAN::add_can_filter(const struct device *dev, const struct can_filter *filte
 		return filter_id;
 	}
 
-	std::unique_ptr<can_bus_status> can_bus_status = this->get_can_bus_status(dev);
+	LOG_INF("Add CAN filter ID:[%x]!", filter_id);
+
+	can_bus_status *can_bus_status = this->get_can_bus_status(dev);
 
 	can_bus_status->filter_id_array[can_bus_status->filter_id_array_count] = filter_id;
 	can_bus_status->filter_id_array_count += 1;
@@ -199,7 +203,7 @@ int CAN::add_can_filter(const struct device *dev, const struct can_filter *filte
 
 bool CAN::reset_can_filter(const struct device *dev)
 {
-	std::shared_ptr<can_bus_status> can_bus_status = this->get_can_bus_status(dev);
+	can_bus_status *can_bus_status = this->get_can_bus_status(dev);
 
 	uint8_t filter_id = 0x00;
 	bool flag = true;

@@ -26,19 +26,21 @@
 
 typedef struct {
 	bool is_enable;
-	uint32_t filter_can_id_min;
-	uint32_t filter_can_id_max;
-	bool is_tx2master;
-	bool is_tx2slave;
-	bool is_tx2peripheral;
 	uint64_t forward_data_cnt;
 	uint64_t loop_back_forward_data_cnt;
 
 	// canfd protocol
-	uint32_t forward_bus_can_id;
+	uint32_t master_data_forward_bus_can_id;
+	uint32_t slave_data_forward_bus_can_id;
 	uint8_t forward_bus_can_id_offset_max;
-	struct can_filter filter;
-	can_rx_callback_t callback;
+	struct can_filter master_filter;
+	can_rx_callback_t master_callback;
+	struct can_filter slave_filter;
+	can_rx_callback_t slave_callback;
+	struct can_filter forward_bus_filter;
+	can_rx_callback_t forward_bus_callback;
+	struct can_filter heartbeat_filter;
+	can_rx_callback_t heartbeat_callback;
 } AdapterDataT;
 
 typedef struct {
@@ -46,6 +48,7 @@ typedef struct {
 	bool is_received_heartbeat;
 	bool is_master_dev;
 	bool is_slave_dev;
+	uint8_t timeout_cnt;
 } AdapterHeartBeatT;
 
 class CANFD_FORWARD_PROTOCOL
@@ -58,15 +61,24 @@ class CANFD_FORWARD_PROTOCOL
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> getInstance();
 	bool forward_protocol_init();
 	int test_canfd_send();
+	void heartbeat_pong_tong();
 
       private:
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;
 	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
 	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
 
-	static std::unique_ptr<AdapterDataT> adapter_data2master;
-	static std::unique_ptr<AdapterDataT> adapter_data2slave;
+	static std::unique_ptr<AdapterDataT> adapter_data2robot;
+	static std::unique_ptr<AdapterDataT> adapter_data2adapter;
 	static std::unique_ptr<AdapterHeartBeatT> adapter_heart_beat;
+	static void data2adapter_master_data_callback(const device *dev, can_frame *frame,
+						      void *user_data);
+	static void data2adapter_slave_data_callback(const device *dev, can_frame *frame,
+						     void *user_data);
+	static void data2robot_forward_data_callback(const device *dev, can_frame *frame,
+						     void *user_data);
+	static void data2robot_heartbeat_data_callback(const device *dev, can_frame *frame,
+						       void *user_data);
 };
 
 #endif // __CANFD_PROTOCOL_HPP__

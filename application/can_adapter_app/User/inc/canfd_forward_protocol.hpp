@@ -32,13 +32,21 @@ typedef struct {
 	// canfd protocol
 	uint32_t master_data_forward_bus_can_id;
 	uint32_t slave_data_forward_bus_can_id;
+	uint32_t bus_order_lock_order_data_forward_bus_can_id;
+	uint32_t bus_order_data_forward_bus_can_id;
 	uint8_t forward_bus_can_id_offset_max;
+	struct can_filter bus_order_lock_order_filter;
+	can_rx_callback_t bus_order_lock_order_callback;
+	struct can_filter bus_order_filter;
+	can_rx_callback_t bus_order_callback;
 	struct can_filter master_filter;
 	can_rx_callback_t master_callback;
 	struct can_filter slave_filter;
 	can_rx_callback_t slave_callback;
 	struct can_filter forward_bus_filter;
 	can_rx_callback_t forward_bus_callback;
+	struct can_filter forward_bus_order_filter;
+	can_rx_callback_t forward_bus_order_callback;
 	struct can_filter heartbeat_filter;
 	can_rx_callback_t heartbeat_callback;
 } AdapterDataT;
@@ -71,12 +79,19 @@ class CANFD_FORWARD_PROTOCOL
 	static std::unique_ptr<AdapterDataT> adapter_data2robot;
 	static std::unique_ptr<AdapterDataT> adapter_data2adapter;
 	static std::unique_ptr<AdapterHeartBeatT> adapter_heart_beat;
+	static void data2adapter_bus_order_lock_order_data_callback(const device *dev,
+								    can_frame *frame,
+								    void *user_data);
+	static void data2adapter_bus_order_data_callback(const device *dev, can_frame *frame,
+							 void *user_data);
 	static void data2adapter_master_data_callback(const device *dev, can_frame *frame,
 						      void *user_data);
 	static void data2adapter_slave_data_callback(const device *dev, can_frame *frame,
 						     void *user_data);
 	static void data2robot_forward_data_callback(const device *dev, can_frame *frame,
 						     void *user_data);
+	static void data2robot_forward_bus_order_data_callback(const device *dev, can_frame *frame,
+							       void *user_data);
 	static void data2robot_heartbeat_data_callback(const device *dev, can_frame *frame,
 						       void *user_data);
 };

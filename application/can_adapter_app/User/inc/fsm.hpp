@@ -23,7 +23,9 @@
 
 #include "can.hpp"
 #include "canfd_forward_protocol.hpp"
+#include "ring_buf.hpp"
 #include "timer.hpp"
+#include "usb_acm.hpp"
 #include <memory>
 
 #define DEFAULT_RATE  10
@@ -94,6 +96,10 @@ class FSM
 	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
 	std::unique_ptr<CANFD_FORWARD_PROTOCOL> canfd_forward_protocol_handle =
 		CANFD_FORWARD_PROTOCOL::getInstance();
+	std::unique_ptr<USB_ACM> usb_acm_handle = USB_ACM::getInstance();
+	RING_BUF ring_buf_handle;
+
+	int test_cnt_num = 0;
 
 	void device_timing_freq_process(std::shared_ptr<FSM> fsm_handle,
 					struct fsm_work_t *fsm_work);
@@ -102,9 +108,6 @@ class FSM
 	static void fsm_timer_callback(struct k_timer *timer_id);
 	void set_fsm_state(std::shared_ptr<fsm_work_t> fsm_work, const enum fsm_state_t state);
 	static void fsm_handle(struct k_work *work);
-
-	static void test_callback(const struct device *dev, struct can_frame *frame,
-				  void *user_data);
 };
 
 #endif // __FSM_HPP__

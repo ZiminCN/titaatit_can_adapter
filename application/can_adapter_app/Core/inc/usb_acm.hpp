@@ -12,3 +12,28 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+#ifndef __USB_ACM_HPP__
+#define __USB_ACM_HPP__
+
+#include <stdio.h>
+#include <string.h>
+
+#include <zephyr/device.h>
+
+#include <memory>
+class USB_ACM
+{
+      public:
+	USB_ACM() = default;
+	~USB_ACM() = default;
+	USB_ACM(const USB_ACM &) = delete;
+	USB_ACM &operator=(const USB_ACM &) = delete;
+	static std::unique_ptr<USB_ACM> getInstance();
+	bool usb_cdc_acm_init();
+
+      private:
+	static std::unique_ptr<USB_ACM> Instance;
+};
+
+#endif // __USB_ACM_HPP__

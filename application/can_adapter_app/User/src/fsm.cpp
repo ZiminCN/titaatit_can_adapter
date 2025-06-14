@@ -70,12 +70,38 @@ void FSM::fsm_data_forward_process_entry(void *obj)
 	LOG_INF("FSM data forward process entry");
 }
 
+uint8_t test_num[30] = {0,  1,	2,  3,	4,  5,	6,  7,	8,  9,	10, 11, 12, 13, 14,
+			15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29};
+
 void FSM::fsm_data_forward_process_run(void *obj)
 {
 	ARG_UNUSED(obj);
 	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
 
 	fsm_driver_handle->canfd_forward_protocol_handle->heartbeat_pong_tong();
+	LOG_INF("====================================");
+	int ret = 0;
+	ret = fsm_driver_handle->ring_buf_handle.get_push_data_count();
+	LOG_INF("ring buf push data count: %d", ret);
+	ret = fsm_driver_handle->ring_buf_handle.get_free_data_count();
+	LOG_INF("ring buf free data count: %d", ret);
+	ret = fsm_driver_handle->ring_buf_handle.get_max_data_count();
+	LOG_INF("ring buf max data count: %d", ret);
+
+	uint8_t readback_num[5];
+
+	ret = fsm_driver_handle->ring_buf_handle.push_data(
+		test_num + fsm_driver_handle->test_cnt_num, 4);
+	fsm_driver_handle->test_cnt_num += 4;
+	if (fsm_driver_handle->test_cnt_num >= 26) {
+		fsm_driver_handle->test_cnt_num = 0;
+	}
+
+	if (ret < 0) {
+		ret = fsm_driver_handle->ring_buf_handle.pop_data(readback_num, 5);
+	}
+
+	LOG_INF("====================================");
 }
 
 void FSM::fsm_sleep_entry(void *obj)
@@ -183,6 +209,8 @@ bool FSM::hardware_init()
 bool FSM::pre_init()
 {
 	this->canfd_forward_protocol_handle->forward_protocol_init();
+	this->usb_acm_handle->usb_cdc_acm_init();
+	this->ring_buf_handle.ring_buf_init(false, false);
 
 	return true;
 }

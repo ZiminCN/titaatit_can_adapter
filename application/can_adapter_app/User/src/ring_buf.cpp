@@ -15,156 +15,193 @@
 
 #include "ring_buf.hpp"
 
-void RING_BUF::ring_buf_init(bool overwrite_flag, bool multi_thread_flag)
-{
-	this->ring_buf.is_allow_overwrite = overwrite_flag;
-	this->ring_buf.is_multi_thread = multi_thread_flag;
-	memset(this->ring_buf.buf_array, 0x00, sizeof(this->ring_buf.buf_array));
-	this->ring_buf.head_ptr = 0;
-	this->ring_buf.tail_ptr = 0;
-	this->ring_buf.headptr_overloop_flag = false;
-	this->ring_buf.push_data_count = 0;
-	this->ring_buf.free_data_count = RING_BUF_SIZE;
-	this->ring_buf.max_data_count = RING_BUF_SIZE;
-	this->ring_buf.mutex_flags = false;
-}
+#include <stdlib.h>
 
-int RING_BUF::get_push_data_count()
-{
-	return this->ring_buf.push_data_count;
-}
+#include <zephyr/kernel.h>
+#include <zephyr/logging/log.h>
 
-int RING_BUF::get_free_data_count()
+LOG_MODULE_REGISTER(ring_buf, LOG_LEVEL_INF);
+
+bool RING_BUF::ring_buf_init(bool overwrite_flag, bool multi_thread_flag, uint16_t buf_size)
 {
-	return this->ring_buf.free_data_count;
+	this->ring_buf.state = RING_BUFFER_NORMAL;
+	this->ring_buf.config.is_allow_overwrite = overwrite_flag;
+	this->ring_buf.core.write_index = 0;
+	this->ring_buf.core.read_index = 0;
+	this->ring_buf.core.buffer_size = buf_size;
+	this->ring_buf.param.mutex_flag = 0;
+	this->ring_buf.param.write_data_count = 0;
+	this->ring_buf.param.free_data_count = buf_size;
+	void *new_ptr = realloc(this->ring_buf.core.buffer_ptr, this->ring_buf.core.buffer_size);
+	if (new_ptr == nullptr) {
+		LOG_ERR("ring_buf.core.buffer_ptr is null");
+		return false;
+	}
+	this->ring_buf.core.buffer_ptr = static_cast<uint8_t *>(new_ptr);
+	memset(this->ring_buf.core.buffer_ptr, 0x00, this->ring_buf.core.buffer_size);
+
+	this->output_ring_buf_data();
+	return true;
 }
 
 int RING_BUF::get_max_data_count()
 {
-	return this->ring_buf.max_data_count;
+	return (this->ring_buf.core.buffer_size);
 }
 
-int RING_BUF::push_data(uint8_t *data, int data_len)
+RING_BUF_STATE_E RING_BUF::get_ring_buf_state()
+{
+	this->is_ring_buffer_full();
+	this->is_ring_buffer_empty();
+	return this->ring_buf.state;
+}
+
+RING_BUF_STATE_E RING_BUF::is_ring_buffer_empty(void)
 {
 
-	if (data_len > this->ring_buf.max_data_count) {
+	// if(this->ring_buf.core.write_index == this->ring_buf.core.read_index){
+	// 	LOG_INF("ring buffer is empty");
+	// 	return RING_BUFFER_EMPTY;
+	// }
+
+	if (this->ring_buf.param.free_data_count == this->ring_buf.core.buffer_size) {
+		LOG_INF("ring buffer is empty");
+		return RING_BUFFER_EMPTY;
+	}
+
+	return RING_BUFFER_NORMAL;
+}
+
+RING_BUF_STATE_E RING_BUF::is_ring_buffer_full(void)
+{
+
+	// if((this->ring_buf.core.write_index + 1)%(this->ring_buf.core.buffer_size) ==
+	// this->ring_buf.core.read_index){ 	LOG_INF("ring buffer is full"); 	return
+	// RING_BUFFER_FULL;
+	// }
+
+	if (this->ring_buf.param.write_data_count == this->ring_buf.core.buffer_size) {
+		LOG_INF("ring buffer is full");
+		return RING_BUFFER_FULL;
+	}
+
+	return RING_BUFFER_NORMAL;
+}
+
+int RING_BUF::write_data(uint8_t *data, uint16_t data_len)
+{
+	// mutex flag
+	if (this->ring_buf.param.mutex_flag == 1) {
 		return -1;
 	}
 
-	if (this->ring_buf.headptr_overloop_flag == true) {
+	this->ring_buf.param.mutex_flag = 1;
+
+	this->ring_buf.state = this->is_ring_buffer_full();
+
+	if (this->ring_buf.param.free_data_count < data_len) {
+		LOG_INF("[Error] No Enough Buffer Space to write data");
+		this->ring_buf.param.mutex_flag = 0;
 		return -1;
 	}
 
-	// check ring buffer is full
-	if (this->ring_buf.is_allow_overwrite == false) {
-
-		if (this->ring_buf.free_data_count < data_len) {
-			return -1;
-		}
-
-		// push data in ring buffer
-		memcpy((this->ring_buf.buf_array + this->ring_buf.head_ptr), &data, data_len);
-
-		this->ring_buf.head_ptr += data_len;
-		if (this->ring_buf.head_ptr >= this->ring_buf.max_data_count) {
-			this->ring_buf.headptr_overloop_flag = true;
-			this->ring_buf.head_ptr -= this->ring_buf.max_data_count;
-		}
-
-		if (this->ring_buf.headptr_overloop_flag) {
-			this->ring_buf.push_data_count = this->ring_buf.head_ptr +
-							 this->ring_buf.max_data_count -
-							 this->ring_buf.tail_ptr;
-			this->ring_buf.free_data_count =
-				this->ring_buf.max_data_count - this->ring_buf.push_data_count;
-			this->ring_buf.headptr_overloop_flag = false;
+	if (this->ring_buf.state == RING_BUFFER_FULL) {
+		this->ring_buf.param.mutex_flag = 0;
+		return -1;
+	} else {
+		uint16_t remaining_elements =
+			this->ring_buf.core.buffer_size - this->ring_buf.core.write_index;
+		if ((remaining_elements) < (data_len)) {
+			memcpy((this->ring_buf.core.buffer_ptr + this->ring_buf.core.write_index),
+			       data, remaining_elements);
+			memcpy((this->ring_buf.core.buffer_ptr), data + remaining_elements,
+			       data_len - remaining_elements);
 		} else {
-			this->ring_buf.push_data_count =
-				this->ring_buf.head_ptr - this->ring_buf.tail_ptr;
-			this->ring_buf.free_data_count =
-				this->ring_buf.max_data_count - this->ring_buf.push_data_count;
+			memcpy((this->ring_buf.core.buffer_ptr + this->ring_buf.core.write_index),
+			       data, data_len);
 		}
 
+		this->ring_buf.core.write_index += data_len;
+		this->ring_buf.core.write_index =
+			(this->ring_buf.core.write_index) % (this->ring_buf.core.buffer_size);
+
+		this->ring_buf.param.write_data_count += data_len;
+		this->ring_buf.param.free_data_count =
+			this->ring_buf.core.buffer_size - this->ring_buf.param.write_data_count;
+
+		this->ring_buf.param.mutex_flag = 0;
 		return data_len;
-	} else if (this->ring_buf.is_allow_overwrite == true) {
-
-		if (this->ring_buf.free_data_count < data_len) {
-			int remain_data = data_len - (this->ring_buf.free_data_count);
-
-			// push data in ring buffer
-			memcpy((this->ring_buf.buf_array + this->ring_buf.head_ptr), &data,
-			       this->ring_buf.free_data_count);
-
-			this->ring_buf.head_ptr += this->ring_buf.free_data_count;
-
-			memcpy((this->ring_buf.buf_array + this->ring_buf.head_ptr),
-			       (&data + this->ring_buf.free_data_count), remain_data);
-
-			this->ring_buf.head_ptr += remain_data;
-			if (this->ring_buf.head_ptr >= this->ring_buf.max_data_count) {
-				this->ring_buf.head_ptr -= this->ring_buf.max_data_count;
-			}
-
-			this->ring_buf.tail_ptr += remain_data;
-			if (this->ring_buf.tail_ptr >= this->ring_buf.max_data_count) {
-				this->ring_buf.tail_ptr -= this->ring_buf.max_data_count;
-			}
-
-			this->ring_buf.push_data_count = this->ring_buf.max_data_count;
-			this->ring_buf.free_data_count = 0;
-
-			return data_len;
-		} else {
-			memcpy((this->ring_buf.buf_array + this->ring_buf.head_ptr), &data,
-			       data_len);
-
-			this->ring_buf.head_ptr += data_len;
-			if (this->ring_buf.head_ptr >= this->ring_buf.max_data_count) {
-				this->ring_buf.headptr_overloop_flag = true;
-				this->ring_buf.head_ptr -= this->ring_buf.max_data_count;
-			}
-
-			if (this->ring_buf.headptr_overloop_flag) {
-				this->ring_buf.push_data_count = this->ring_buf.head_ptr +
-								 this->ring_buf.max_data_count -
-								 this->ring_buf.tail_ptr;
-				this->ring_buf.free_data_count = this->ring_buf.max_data_count -
-								 this->ring_buf.push_data_count;
-				this->ring_buf.headptr_overloop_flag = false;
-			} else {
-				this->ring_buf.push_data_count =
-					this->ring_buf.head_ptr - this->ring_buf.tail_ptr;
-				this->ring_buf.free_data_count = this->ring_buf.max_data_count -
-								 this->ring_buf.push_data_count;
-			}
-
-			return data_len;
-		}
 	}
 
+	this->ring_buf.param.mutex_flag = 0;
 	return -1;
 }
 
-int RING_BUF::pop_data(uint8_t *data, int data_len)
+int RING_BUF::read_data(uint8_t *data, uint16_t data_len)
 {
-	if (data_len > this->ring_buf.push_data_count) {
+	// mutex flag
+	if (this->ring_buf.param.mutex_flag == 1) {
 		return -1;
 	}
 
-	if (this->ring_buf.headptr_overloop_flag == true) {
+	this->ring_buf.param.mutex_flag = 1;
+
+	this->ring_buf.state = this->is_ring_buffer_empty();
+
+	if (this->ring_buf.param.write_data_count < data_len) {
+		LOG_INF("[Error] No Enough Buffer Data to read");
+		this->ring_buf.param.mutex_flag = 0;
 		return -1;
 	}
 
-	memcpy(&data, (this->ring_buf.buf_array + this->ring_buf.tail_ptr), data_len);
+	if (this->ring_buf.state == RING_BUFFER_EMPTY) {
+		this->ring_buf.param.mutex_flag = 0;
+		return -1;
+	} else {
+		uint16_t remaining_elements =
+			this->ring_buf.core.buffer_size - this->ring_buf.core.read_index;
+		if ((remaining_elements) < (data_len)) {
+			memcpy(data,
+			       this->ring_buf.core.buffer_ptr + this->ring_buf.core.read_index,
+			       remaining_elements);
+			memcpy(data + remaining_elements, this->ring_buf.core.buffer_ptr,
+			       data_len - remaining_elements);
+		} else {
+			memcpy(data,
+			       this->ring_buf.core.buffer_ptr + this->ring_buf.core.read_index,
+			       data_len);
+		}
 
-	this->ring_buf.tail_ptr += data_len;
-	if (this->ring_buf.tail_ptr >= this->ring_buf.max_data_count) {
-		this->ring_buf.tail_ptr -= this->ring_buf.max_data_count;
+		// this->ring_buf.core.read_index += (this->ring_buf.core.read_index ==
+		// 0)?(data_len):(data_len+1);
+		this->ring_buf.core.read_index = (this->ring_buf.core.read_index + data_len) %
+						 (this->ring_buf.core.buffer_size);
+
+		this->ring_buf.param.free_data_count += data_len;
+		this->ring_buf.param.write_data_count =
+			this->ring_buf.core.buffer_size - this->ring_buf.param.free_data_count;
+
+		this->ring_buf.param.mutex_flag = 0;
+		return data_len;
 	}
 
-	this->ring_buf.push_data_count = this->ring_buf.head_ptr - this->ring_buf.tail_ptr;
-	this->ring_buf.free_data_count =
-		this->ring_buf.max_data_count - this->ring_buf.push_data_count;
-
+	this->ring_buf.param.mutex_flag = 0;
 	return data_len;
+}
+
+void RING_BUF::output_ring_buf_data()
+{
+
+	for (int i = 0; i < this->ring_buf.core.buffer_size; i++) {
+		LOG_INF("ring buffer[%d]: [%d]", i, this->ring_buf.core.buffer_ptr[i]);
+	}
+}
+
+void RING_BUF::debug_LOG()
+{
+	LOG_INF("write index is [%d]", this->ring_buf.core.write_index);
+	LOG_INF("read index is [%d]", this->ring_buf.core.read_index);
+
+	LOG_INF("write data count is [%d]", this->ring_buf.param.write_data_count);
+	LOG_INF("free data count is [%d]", this->ring_buf.param.free_data_count);
 }

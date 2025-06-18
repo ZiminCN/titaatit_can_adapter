@@ -25,33 +25,51 @@ extern "C" {
 
 #include <cstring>
 
-#define RING_BUF_SIZE 10
+typedef enum {
+	RING_BUFFER_NORMAL = 0,
+	RING_BUFFER_EMPTY = 1,
+	RING_BUFFER_FULL = 2,
+} RING_BUF_STATE_E;
 
 class RING_BUF
 {
       public:
-	void ring_buf_init(bool overwrite_flag, bool multi_thread_flag);
-	int get_push_data_count();
-	int get_free_data_count();
+	bool ring_buf_init(bool overwrite_flag, bool multi_thread_flag, uint16_t buf_size);
 	int get_max_data_count();
-	int push_data(uint8_t *data, int data_len);
-	int pop_data(uint8_t *data, int data_len);
+	RING_BUF_STATE_E get_ring_buf_state();
+	int write_data(uint8_t *data, uint16_t data_len);
+	int read_data(uint8_t *data, uint16_t data_len);
+	void output_ring_buf_data();
+	void debug_LOG();
 
       private:
 	typedef struct {
-		bool is_allow_overwrite; // if true, it will overwrite the old data
-		bool is_multi_thread; // if true, it will use mutex/flags to protect the ring buffer
+		uint8_t *buffer_ptr;
+		uint16_t write_index;
+		uint16_t read_index;
+		uint16_t buffer_size;
+	} RING_BUF_CORE_T;
 
-		uint8_t buf_array[RING_BUF_SIZE];
-		uint8_t head_ptr;
-		uint8_t tail_ptr;
-		bool headptr_overloop_flag;
+	typedef struct {
+		bool mutex_flag;
+		uint16_t write_data_count;
+		uint16_t free_data_count;
+	} RING_BUF_PARAM_T;
 
-		uint8_t push_data_count;
-		uint8_t free_data_count;
-		uint8_t max_data_count;
-		bool mutex_flags;
+	typedef struct {
+		bool is_allow_overwrite;
+	} RING_BUF_CONFIG_T;
+
+	typedef struct {
+		RING_BUF_STATE_E state;
+		RING_BUF_CORE_T core;
+		RING_BUF_PARAM_T param;
+		RING_BUF_CONFIG_T config;
 	} RING_BUF_T;
+
+	RING_BUF_STATE_E is_ring_buffer_empty(void);
+	RING_BUF_STATE_E is_ring_buffer_full(void);
+
 	RING_BUF_T ring_buf;
 };
 

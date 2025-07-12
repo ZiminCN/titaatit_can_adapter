@@ -113,3 +113,8 @@ struct k_timer *TIMER::get_can_adapter_heartbeat_timer()
 {
 	return &(this->timer_management_group->can_adapter_heartbeat_timer);
 }
+
+struct k_timer *TIMER::get_usb_cdc_acm_timer()
+{
+	return &(this->timer_management_group->usb_cdc_acm_timer);
+}

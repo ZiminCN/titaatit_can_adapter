@@ -35,6 +35,7 @@ typedef struct {
 
 typedef struct {
 	struct k_timer can_adapter_heartbeat_timer;
+	struct k_timer usb_cdc_acm_timer; // 1hz
 } TIMER_MANGEMENT_GPOUP_T;
 
 class TIMER
@@ -63,6 +64,7 @@ class TIMER
 	void set_timer_freq_cfg_cycle_count(uint32_t cycle_count);
 	uint32_t get_timer_freq_cfg_cycle_count();
 	struct k_timer *get_can_adapter_heartbeat_timer();
+	struct k_timer *get_usb_cdc_acm_timer();
 
       private:
 	static std::unique_ptr<TIMER> Instance;

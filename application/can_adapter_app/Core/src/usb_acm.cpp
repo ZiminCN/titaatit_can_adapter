@@ -345,6 +345,7 @@ void USB_ACM::interrupt_handler(const struct device *dev, void *user_data)
 	USB_ACM &usb_acm_handle = USB_ACM::getInstancePtr();
 
 	while (uart_irq_update(dev) && uart_irq_is_pending(dev)) {
+		// receive data
 		if (!usb_acm_handle.rx_throttled && uart_irq_rx_ready(dev)) {
 			int recv_len, rb_len;
 			uint8_t buffer[64];
@@ -374,6 +375,7 @@ void USB_ACM::interrupt_handler(const struct device *dev, void *user_data)
 			}
 		}
 
+		// send data
 		if (uart_irq_tx_ready(dev)) {
 			uint8_t buffer[64];
 			int rb_len, send_len;

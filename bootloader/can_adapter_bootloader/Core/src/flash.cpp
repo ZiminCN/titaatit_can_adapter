@@ -81,15 +81,17 @@ void FLASH_MANAGER::read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data)
 	flash_area_close(temp_fa);
 }
 
-bool FLASH_MANAGER::write_factory_arg_data(FLASH_MANAGER *factory_arg_data)
+bool FLASH_MANAGER::write_factory_arg_data(FACTORY_ARG_T *factory_arg_data)
 {
 	const struct flash_area *temp_fa;
 	struct flash_sector boot_arg_sector;
-	uint32_t sec_cnt = 1;
+	uint32_t sec_cnt = 2;
 	int ret = 0;
 	int retry = 3;
 
 	flash_area_open(FACTORY_AREA, &temp_fa);
+
+	flash_area_get_sectors(FACTORY_AREA, &sec_cnt, &boot_arg_sector);
 
 	if (!flash_area_device_is_ready(temp_fa)) {
 		LOG_ERR("Flash area device is not ready!");
@@ -97,10 +99,9 @@ bool FLASH_MANAGER::write_factory_arg_data(FLASH_MANAGER *factory_arg_data)
 		return false;
 	}
 
-	flash_area_get_sectors(FACTORY_AREA, &sec_cnt, &boot_arg_sector);
-
 	do {
-		ret = flash_area_erase(temp_fa, 0, boot_arg_sector.fs_size);
+		// ret = flash_area_erase(temp_fa, 0, boot_arg_sector.fs_size);
+		ret = flash_area_erase(temp_fa, 0, 1024);
 		retry--;
 	} while ((ret != 0) && (retry >= 0));
 

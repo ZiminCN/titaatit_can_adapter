@@ -55,11 +55,6 @@ typedef struct {
 
 	uint32_t boot_crc_value;
 	uint32_t app_crc_value;
-
-	uint8_t error_code_history[10];
-
-	// Used to ensure memory alignment
-	uint8_t reserved[1];
 } FACTORY_ARG_T;
 
 class FLASH_MANAGER
@@ -70,7 +65,7 @@ class FLASH_MANAGER
 	bool init();
 	bool erase_app_flash_page(uint8_t page_num);
 	void read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data);
-	bool write_factory_arg_data(FLASH_MANAGER *factory_arg_data);
+	bool write_factory_arg_data(FACTORY_ARG_T *factory_arg_data);
 
       private:
 	static std::unique_ptr<FLASH_MANAGER> Instance;

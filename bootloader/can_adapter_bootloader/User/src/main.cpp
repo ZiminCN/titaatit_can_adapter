@@ -33,9 +33,27 @@ int main(void)
 	LOG_INF("Hello World! I am %s", CONFIG_BOARD);
 	std::unique_ptr<FLASH_MANAGER> flash_manager_driver = std::make_unique<FLASH_MANAGER>();
 
-	LOG_INF("Now try to erase app flash area...[0x08010000 - 0x0803F800]");
-	flash_manager_driver->erase_app_flash_page(0);
-	LOG_INF("Erase app flash area down!");
+	FACTORY_ARG_T test_arg = {
+		.magic_number = MAGIC_NUMBER,
+		.is_boot_update_flag = 0xA,
+		.is_app_update_flag = 0xB,
+		.boot_status = BOOT_OK,
+		.boot_build_timestamp = 0x12345678,
+		.app_build_timestamp = 0x87654321,
+		.boot_version = 0xC,
+		.boot_version_major = 0xD,
+		.boot_version_minor = 0xE,
+		.app_version = 0xF,
+		.app_version_major = 0xAB,
+		.app_version_minor = 0xCD,
+		.hw_version = 0xEF,
+	};
+
+	flash_manager_driver->write_factory_arg_data(&test_arg);
+
+	// LOG_INF("Now try to erase app flash area...[0x08010000 - 0x0803F800]");
+	// flash_manager_driver->erase_app_flash_page(0);
+	// LOG_INF("Erase app flash area down!");
 
 	while (1) {
 		k_sleep(K_SECONDS(1));

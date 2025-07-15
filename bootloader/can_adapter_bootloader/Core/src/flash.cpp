@@ -102,7 +102,7 @@ bool FLASH_MANAGER::write_factory_arg_data(FLASH_MANAGER *factory_arg_data)
 	do {
 		ret = flash_area_erase(temp_fa, 0, boot_arg_sector.fs_size);
 		retry--;
-	} while ((ret != 0) || (retry <= 0));
+	} while ((ret != 0) && (retry >= 0));
 
 	flash_area_write(temp_fa, 0, factory_arg_data, sizeof(FACTORY_ARG_T));
 
@@ -111,7 +111,7 @@ bool FLASH_MANAGER::write_factory_arg_data(FLASH_MANAGER *factory_arg_data)
 	return true;
 }
 
-bool FLASH_MANAGER::erase_app_flash()
+bool FLASH_MANAGER::erase_app_flash_page(uint8_t page_num)
 {
 	const struct flash_area *temp_fa;
 	struct flash_sector app_sector;
@@ -130,9 +130,10 @@ bool FLASH_MANAGER::erase_app_flash()
 	flash_area_get_sectors(APP_AREA, &sec_cnt, &app_sector);
 
 	do {
-		ret = flash_area_erase(temp_fa, 0, 0x1F * (app_sector.fs_size));
+		ret = flash_area_erase(temp_fa, page_num * app_sector.fs_size,
+				       (app_sector.fs_size));
 		retry--;
-	} while ((ret != 0) || (retry <= 0));
+	} while ((ret != 0) && (retry >= 0));
 
 	flash_area_close(temp_fa);
 

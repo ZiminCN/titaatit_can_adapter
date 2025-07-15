@@ -34,7 +34,7 @@ int main(void)
 	std::unique_ptr<FLASH_MANAGER> flash_manager_driver = std::make_unique<FLASH_MANAGER>();
 
 	LOG_INF("Now try to erase app flash area...[0x08010000 - 0x0803F800]");
-	flash_manager_driver->erase_app_flash();
+	flash_manager_driver->erase_app_flash_page(0);
 	LOG_INF("Erase app flash area down!");
 
 	while (1) {

@@ -68,7 +68,7 @@ class FLASH_MANAGER
 	FLASH_MANAGER() = default;
 	~FLASH_MANAGER() = default;
 	bool init();
-	bool erase_app_flash();
+	bool erase_app_flash_page(uint8_t page_num);
 	void read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data);
 	bool write_factory_arg_data(FLASH_MANAGER *factory_arg_data);
 

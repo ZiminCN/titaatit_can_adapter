@@ -5,3 +5,7 @@
 
 config  BOARD_CAN_ADAPTER
 	select SOC_STM32G473XX
+
+config CAN_ADAPTER_BOOT_ARG_PARTITION_LOAD_SIZE
+	hex "boot arg partition load size"
+	default 0x800

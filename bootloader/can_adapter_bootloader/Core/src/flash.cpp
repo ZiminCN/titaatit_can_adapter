@@ -22,6 +22,11 @@ LOG_MODULE_REGISTER(flash_manager, LOG_LEVEL_INF);
 std::unique_ptr<FLASH_MANAGER> FLASH_MANAGER::Instance = std::make_unique<FLASH_MANAGER>();
 std::unique_ptr<FACTORY_ARG_T> FLASH_MANAGER::factory_arg = std::make_unique<FACTORY_ARG_T>();
 
+std::unique_ptr<FLASH_MANAGER> FLASH_MANAGER::getInstance()
+{
+	return std::move(Instance);
+}
+
 bool FLASH_MANAGER::init()
 {
 	return true;

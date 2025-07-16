@@ -62,6 +62,9 @@ class FLASH_MANAGER
       public:
 	FLASH_MANAGER() = default;
 	~FLASH_MANAGER() = default;
+	FLASH_MANAGER(const FLASH_MANAGER &) = delete;
+	FLASH_MANAGER &operator=(const FLASH_MANAGER &) = delete;
+	static std::unique_ptr<FLASH_MANAGER> getInstance();
 	bool init();
 	bool erase_app_flash_page(uint8_t page_num);
 	void read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data);

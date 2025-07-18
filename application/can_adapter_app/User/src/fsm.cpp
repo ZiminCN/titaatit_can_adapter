@@ -183,7 +183,7 @@ bool FSM::hardware_init()
 bool FSM::pre_init()
 {
 	this->canfd_forward_protocol_handle->forward_protocol_init();
-	this->usb_acm_handle->usb_cdc_acm_init();
+	// this->usb_acm_handle->usb_cdc_acm_init();
 	this->ring_buf_handle.ring_buf_init(false, false, 15);
 
 	return true;

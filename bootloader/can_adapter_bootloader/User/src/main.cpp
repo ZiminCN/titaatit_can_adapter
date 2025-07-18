@@ -34,6 +34,11 @@ int main(void)
 	LOG_INF("Hello World! I am %s", CONFIG_BOARD);
 	std::unique_ptr<BOOT> boot_manager_driver = BOOT::getInstance();
 
+	k_sleep(K_SECONDS(2));
+
+	boot_manager_driver->boot2app();
+	// boot_manager_driver->do_boot();
+
 	// std::unique_ptr<FLASH_MANAGER> flash_manager_driver = FLASH_MANAGER::getInstance();
 
 	// FACTORY_ARG_T test_arg = {

@@ -36,7 +36,8 @@ class BOOT
 	BOOT &operator=(const BOOT &) = delete;
 	static std::unique_ptr<BOOT> getInstance();
 	void cleanup_arm_nvic(void);
-	void boot2app();
+	void boot2app(void);
+	void do_boot();
 
       private:
 	static std::unique_ptr<BOOT> Instance;

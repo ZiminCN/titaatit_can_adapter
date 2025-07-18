@@ -102,11 +102,32 @@
 	// 	};
 	// };
 
-	//! It seems that the size of the chip sectors is inconsistent. 
-	//! Maybe it is related to the bank. It has not been verified yet. 
-	//! When attempting to place the boot parameter at the end of the region, 
-	//! an error of being unable to erase or write occurred. 
-	//! Just swapping the regions of the app and the boot parameter restored it to normal.
+	// //! It seems that the size of the chip sectors is inconsistent. 
+	// //! Maybe it is related to the bank. It has not been verified yet. 
+	// //! When attempting to place the boot parameter at the end of the region, 
+	// //! an error of being unable to erase or write occurred. 
+	// //! Just swapping the regions of the app and the boot parameter restored it to normal.
+	// partitions {
+	// 	compatible = "fixed-partitions";
+	// 	#address-cells = <1>;
+	// 	#size-cells = <1>;
+
+	// 	boot_partition: partition@0 {
+	// 		label = "bootloader";
+	// 		reg = <0x00000000 DT_SIZE_K(64)>;
+	// 	};
+
+	// 	factory_partition: partition@10000 {
+	// 		label = "factory_arg";
+	// 		reg = <0x00010000 DT_SIZE_K(2)>;
+	// 	};
+
+	// 	slot0_partition: partition@10800 {
+	// 		label = "image-0";
+	// 		reg = <0x00010800 DT_SIZE_K(190)>;
+	// 	};
+	// };
+
 	partitions {
 		compatible = "fixed-partitions";
 		#address-cells = <1>;
@@ -114,17 +135,17 @@
 
 		boot_partition: partition@0 {
 			label = "bootloader";
-			reg = <0x00000000 DT_SIZE_K(64)>;
+			reg = <0x00000000 DT_SIZE_K(94)>;
 		};
 
-		factory_partition: partition@10000 {
+		factory_partition: partition@17800 {
 			label = "factory_arg";
-			reg = <0x00010000 DT_SIZE_K(2)>;
+			reg = <0x00017800 DT_SIZE_K(2)>;
 		};
 
-		slot0_partition: partition@10800 {
+		slot0_partition: partition@18000 {
 			label = "image-0";
-			reg = <0x00010800 DT_SIZE_K(190)>;
+			reg = <0x00018000 DT_SIZE_K(160)>;
 		};
 	};
 };

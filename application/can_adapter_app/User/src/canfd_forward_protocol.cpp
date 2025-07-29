@@ -543,16 +543,18 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 static bool last_heartbeat_status = false;
 HeartbeatDetectedStatusE CANFD_FORWARD_PROTOCOL::is_detected_heartbeat()
 {
-	if(last_heartbeat_status == adapter_heart_beat->is_received_heartbeat){
-		return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // No change in heartbeat status
-	}else{
+	if (last_heartbeat_status == adapter_heart_beat->is_received_heartbeat) {
+		return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // No change in heartbeat
+								       // status
+	} else {
 		last_heartbeat_status = adapter_heart_beat->is_received_heartbeat;
-		if(last_heartbeat_status == true){
+		if (last_heartbeat_status == true) {
 			return HeartbeatDetectedStatusE::HEART_BEAT_DETECTED; // Heartbeat detected
-		}else{
+		} else {
 			return HEART_BEAT_LOST; // Heartbeat lost
 		}
 	}
 
-	return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // Default return value if no condition is met
+	return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // Default return value if no
+							       // condition is met
 }

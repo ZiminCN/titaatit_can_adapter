@@ -79,9 +79,9 @@ void FSM::fsm_data_forward_process_run(void *obj)
 
 	int ret = fsm_driver_handle->canfd_forward_protocol_handle->is_detected_heartbeat();
 	// control 48v mosfet on/off
-	if(ret == HeartbeatDetectedStatusE::HEART_BEAT_DETECTED){
+	if (ret == HeartbeatDetectedStatusE::HEART_BEAT_DETECTED) {
 		// fsm_driver_handle->mosfet_control_handle->set_48v_mosfet_state(GPIO_OUTPUT_ACTIVE);
-	}else if(ret == HeartbeatDetectedStatusE::HEART_BEAT_LOST){
+	} else if (ret == HeartbeatDetectedStatusE::HEART_BEAT_LOST) {
 		// fsm_driver_handle->mosfet_control_handle->set_48v_mosfet_state(GPIO_OUTPUT_INACTIVE);
 	}
 }

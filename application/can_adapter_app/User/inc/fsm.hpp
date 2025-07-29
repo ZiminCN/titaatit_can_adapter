@@ -23,10 +23,10 @@
 
 #include "can.hpp"
 #include "canfd_forward_protocol.hpp"
+#include "mosfet_control.hpp"
 #include "ring_buf.hpp"
 #include "timer.hpp"
 #include "usb_acm.hpp"
-#include "mosfet_control.hpp"
 #include <memory>
 
 #define DEFAULT_RATE  10

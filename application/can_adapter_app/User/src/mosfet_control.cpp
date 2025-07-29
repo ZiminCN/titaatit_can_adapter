@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include "mosfet_control.hpp"
+
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(mosfet_control, LOG_LEVEL_INF);
@@ -22,14 +23,15 @@ std::unique_ptr<MOSFET_CONTROL> MOSFET_CONTROL::Instance = std::make_unique<MOSF
 
 std::unique_ptr<MOSFET_CONTROL> MOSFET_CONTROL::getInstance()
 {
-        return std::move(MOSFET_CONTROL::Instance);
+	return std::move(MOSFET_CONTROL::Instance);
 }
 
-void MOSFET_CONTROL::init(){
-        this->gpio_handle->init();
+void MOSFET_CONTROL::init()
+{
+	this->gpio_handle->init();
 }
 
 void MOSFET_CONTROL::set_48v_mosfet_state(gpio_flags_t extra_flags)
 {
-        this->gpio_handle->set_48v_gpio_state(extra_flags);
+	this->gpio_handle->set_48v_gpio_state(extra_flags);
 }

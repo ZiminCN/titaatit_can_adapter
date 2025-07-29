@@ -91,26 +91,27 @@
 };
 
 &flash0 {
-	// partitions {
-	// 	compatible = "fixed-partitions";
-	// 	#address-cells = <1>;
-	// 	#size-cells = <1>;
+	partitions {
+		status = "okay";
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
 
-	// 	boot_partition: partition@0 {
-	// 		label = "bootloader";
-	// 		reg = <0x00000000 DT_SIZE_K(64)>;
-	// 	};
+		boot_partition: partition@0 {
+			label = "bootloader";
+			reg = <0x00000000 DT_SIZE_K(64)>;
+		};
 
-	// 	slot0_partition: partition@10000 {
-	// 		label = "image-0";
-	// 		reg = <0x00010000 DT_SIZE_K(190)>;
-	// 	};
+		slot0_partition: partition@10000 {
+			label = "image-0";
+			reg = <0x00010000 DT_SIZE_K(190)>;
+		};
 
-	// 	factory_partition: partition@3f800 {
-	// 		label = "factory_arg";
-	// 		reg = <0x0003F800 DT_SIZE_K(2)>;
-	// 	};
-	// };
+		factory_partition: partition@3f800 {
+			label = "factory_arg";
+			reg = <0x0003F800 DT_SIZE_K(2)>;
+		};
+	};
 
 	// //! It seems that the size of the chip sectors is inconsistent. 
 	// //! Maybe it is related to the bank. It has not been verified yet. 
@@ -158,31 +159,32 @@
 	// 		reg = <0x00018000 DT_SIZE_K(160)>;
 	// 	};
 	// };
-	partitions {
-		compatible = "fixed-partitions";
-		#address-cells = <1>;
-		#size-cells = <1>;
 
-		boot_partition: partition@0 {
-			label = "ddtboot";
-			reg = <0x00000000 DT_SIZE_K(36)>;
-			read-only;
-		};
-		slot0_partition: partition@9000 {
-			label = "image-0";
-			reg = <0x00009000 DT_SIZE_K(88)>;
-		};
+	// partitions {
+	// 	compatible = "fixed-partitions";
+	// 	#address-cells = <1>;
+	// 	#size-cells = <1>;
 
-		factory_partition: partition@1f000 {
-			label = "factory_arg";
-			reg = <0x0001f000 DT_SIZE_K(2)>;
-		};
-		/* Set 1KB of boot_arg at the end of 128KB flash */
-		boot_arg_partition: partition@1f800 {
-			label = "boot_arg";
-			reg = <0x0001f800 DT_SIZE_K(2)>;
-		};
-	};
+	// 	boot_partition: partition@0 {
+	// 		label = "ddtboot";
+	// 		reg = <0x00000000 DT_SIZE_K(36)>;
+	// 		read-only;
+	// 	};
+	// 	slot0_partition: partition@9000 {
+	// 		label = "image-0";
+	// 		reg = <0x00009000 DT_SIZE_K(88)>;
+	// 	};
+
+	// 	factory_partition: partition@1f000 {
+	// 		label = "factory_arg";
+	// 		reg = <0x0001f000 DT_SIZE_K(2)>;
+	// 	};
+	// 	/* Set 1KB of boot_arg at the end of 128KB flash */
+	// 	boot_arg_partition: partition@1f800 {
+	// 		label = "boot_arg";
+	// 		reg = <0x0001f800 DT_SIZE_K(2)>;
+	// 	};
+	// };
 };
 
 &iwdg {

@@ -32,9 +32,12 @@
 int main(void)
 {
 	// LOG_INF("Hello World! I am %s", CONFIG_BOARD);
-	std::unique_ptr<BOOT> boot_manager_driver = BOOT::getInstance();
 
-	k_sleep(K_SECONDS(2));
+	//! Use STM32 HAL, or set single bank flash at Jlink/Ozone
+	HAL_FLASHEx_OB_DBankConfig(OB_DBANK_128_BITS);
+	//! Use STM32 HAL, or set single bank flash at Jlink/Ozone
+
+	std::unique_ptr<BOOT> boot_manager_driver = BOOT::getInstance();
 
 	boot_manager_driver->boot2app();
 	// boot_manager_driver->do_boot();

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 #include "gpio.hpp"
+
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(gpio, LOG_LEVEL_INF);
@@ -25,32 +26,34 @@ std::unique_ptr<GPIO> GPIO::Instance = std::make_unique<GPIO>();
 
 std::unique_ptr<GPIO> GPIO::getInstance()
 {
-    return std::move(GPIO::Instance);
+	return std::move(GPIO::Instance);
 }
 
 void GPIO::init()
 {
-        bool ret;
+	bool ret;
 
-        ret = gpio_is_ready_dt(&pwr48v_mosfet_spec);
-        if(!ret) {
-                LOG_ERR("PWR 48V MOSFET GPIO is not ready!");
-                return;
-        }
+	ret = gpio_is_ready_dt(&pwr48v_mosfet_spec);
+	if (!ret) {
+		LOG_ERR("PWR 48V MOSFET GPIO is not ready!");
+		return;
+	}
 
-        LOG_INF("PWR 48V MOSFET GPIO is ready!");
+	LOG_INF("PWR 48V MOSFET GPIO is ready!");
 }
 
 void GPIO::gpio_callback(std::function<void()> callback)
 {
-        callback();
+	callback();
 }
 
 void GPIO::set_gpio_state(const struct gpio_dt_spec *spec, gpio_flags_t extra_flags)
 {
-        gpio_pin_configure_dt(spec, extra_flags);
+	gpio_pin_configure_dt(spec, extra_flags);
 }
 
-void GPIO::set_48v_gpio_state(gpio_flags_t extra_flags){
-        this->gpio_callback(std::bind(&GPIO::set_gpio_state, this, &pwr48v_mosfet_spec, extra_flags));
+void GPIO::set_48v_gpio_state(gpio_flags_t extra_flags)
+{
+	this->gpio_callback(
+		std::bind(&GPIO::set_gpio_state, this, &pwr48v_mosfet_spec, extra_flags));
 }

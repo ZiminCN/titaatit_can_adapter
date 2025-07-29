@@ -16,24 +16,27 @@
 #ifndef __MOSFET_CONTROL_HPP__
 #define __MOSFET_CONTROL_HPP__
 
-#include "gpio.hpp"
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
+
+#include "gpio.hpp"
 #include <memory>
 
-class MOSFET_CONTROL {
-        public:
-                MOSFET_CONTROL() = default;
-                ~MOSFET_CONTROL() = default;
-                MOSFET_CONTROL(const MOSFET_CONTROL &) = delete;
-                MOSFET_CONTROL &operator=(const MOSFET_CONTROL &) = delete;
-                static std::unique_ptr<MOSFET_CONTROL> getInstance();
-                
-                void init();
-                void set_48v_mosfet_state(gpio_flags_t extra_flags);
-        private:
-                static std::unique_ptr<MOSFET_CONTROL> Instance;
-                std::unique_ptr<GPIO> gpio_handle = GPIO::getInstance();
+class MOSFET_CONTROL
+{
+      public:
+	MOSFET_CONTROL() = default;
+	~MOSFET_CONTROL() = default;
+	MOSFET_CONTROL(const MOSFET_CONTROL &) = delete;
+	MOSFET_CONTROL &operator=(const MOSFET_CONTROL &) = delete;
+	static std::unique_ptr<MOSFET_CONTROL> getInstance();
+
+	void init();
+	void set_48v_mosfet_state(gpio_flags_t extra_flags);
+
+      private:
+	static std::unique_ptr<MOSFET_CONTROL> Instance;
+	std::unique_ptr<GPIO> gpio_handle = GPIO::getInstance();
 };
 
 #endif // __MOSFET_CONTROL_HPP__

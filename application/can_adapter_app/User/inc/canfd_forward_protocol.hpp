@@ -59,6 +59,12 @@ typedef struct {
 	uint8_t timeout_cnt;
 } AdapterHeartBeatT;
 
+typedef enum {
+	HEART_BEAT_NO_CHANGE = 0x00,
+	HEART_BEAT_DETECTED = 0x01,
+	HEART_BEAT_LOST = 0x02,
+} HeartbeatDetectedStatusE;
+
 class CANFD_FORWARD_PROTOCOL
 {
       public:
@@ -70,6 +76,7 @@ class CANFD_FORWARD_PROTOCOL
 	bool forward_protocol_init();
 	int test_canfd_send();
 	void heartbeat_pong_tong();
+	HeartbeatDetectedStatusE is_detected_heartbeat();
 
       private:
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;

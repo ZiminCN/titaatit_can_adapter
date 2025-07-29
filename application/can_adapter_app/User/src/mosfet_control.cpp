@@ -13,32 +13,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#include <zephyr/device.h>
-#include <zephyr/drivers/gpio.h>
-#include <zephyr/kernel.h>
+#include "mosfet_control.hpp"
 #include <zephyr/logging/log.h>
-#include <zephyr/settings/settings.h>
 
-#include "can.hpp"
-#include "fsm.hpp"
+LOG_MODULE_REGISTER(mosfet_control, LOG_LEVEL_INF);
 
-LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
+std::unique_ptr<MOSFET_CONTROL> MOSFET_CONTROL::Instance = std::make_unique<MOSFET_CONTROL>();
 
-int main(void)
+std::unique_ptr<MOSFET_CONTROL> MOSFET_CONTROL::getInstance()
 {
-	LOG_INF("APP Hello World! I am %s", CONFIG_BOARD);
+        return std::move(MOSFET_CONTROL::Instance);
+}
 
-	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+void MOSFET_CONTROL::init(){
+        this->gpio_handle->init();
+}
 
-	fsm_driver_handle->fsm_init(FSM_INIT_STATE);
-
-	while (1) {
-		k_sleep(K_SECONDS(1));
-	}
-
-	return 0;
+void MOSFET_CONTROL::set_48v_mosfet_state(gpio_flags_t extra_flags)
+{
+        this->gpio_handle->set_48v_gpio_state(extra_flags);
 }

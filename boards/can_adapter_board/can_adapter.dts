@@ -33,6 +33,9 @@
 	aliases {
 		watchdog0 = &iwdg;
 	};
+	zephyr,user {
+		pwr-48v-mosfet-gpios = <&gpioa 2 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &clk_lsi {
@@ -56,6 +59,13 @@
 	div-r = <2>;
 	clocks = <&clk_hse>;
 	status = "okay";
+	// div-m = <1>;
+	// mul-n = <40>;
+	// div-p = <2>;
+	// div-q = <2>;
+	// div-r = <2>;
+	// clocks = <&clk_hse>;
+	// status = "okay";
 };
 
 
@@ -128,24 +138,49 @@
 	// 	};
 	// };
 
+	// partitions {
+	// 	compatible = "fixed-partitions";
+	// 	#address-cells = <1>;
+	// 	#size-cells = <1>;
+
+	// 	boot_partition: partition@0 {
+	// 		label = "bootloader";
+	// 		reg = <0x00000000 DT_SIZE_K(94)>;
+	// 	};
+
+	// 	factory_partition: partition@17800 {
+	// 		label = "factory_arg";
+	// 		reg = <0x00017800 DT_SIZE_K(2)>;
+	// 	};
+
+	// 	slot0_partition: partition@18000 {
+	// 		label = "image-0";
+	// 		reg = <0x00018000 DT_SIZE_K(160)>;
+	// 	};
+	// };
 	partitions {
 		compatible = "fixed-partitions";
 		#address-cells = <1>;
 		#size-cells = <1>;
 
 		boot_partition: partition@0 {
-			label = "bootloader";
-			reg = <0x00000000 DT_SIZE_K(94)>;
+			label = "ddtboot";
+			reg = <0x00000000 DT_SIZE_K(36)>;
+			read-only;
 		};
-
-		factory_partition: partition@17800 {
-			label = "factory_arg";
-			reg = <0x00017800 DT_SIZE_K(2)>;
-		};
-
-		slot0_partition: partition@18000 {
+		slot0_partition: partition@9000 {
 			label = "image-0";
-			reg = <0x00018000 DT_SIZE_K(160)>;
+			reg = <0x00009000 DT_SIZE_K(88)>;
+		};
+
+		factory_partition: partition@1f000 {
+			label = "factory_arg";
+			reg = <0x0001f000 DT_SIZE_K(2)>;
+		};
+		/* Set 1KB of boot_arg at the end of 128KB flash */
+		boot_arg_partition: partition@1f800 {
+			label = "boot_arg";
+			reg = <0x0001f800 DT_SIZE_K(2)>;
 		};
 	};
 };

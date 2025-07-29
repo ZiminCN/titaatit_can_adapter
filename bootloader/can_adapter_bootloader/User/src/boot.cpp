@@ -18,9 +18,9 @@
 #include <zephyr/cache.h>
 #include <zephyr/drivers/timer/system_timer.h>
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
+// #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(boot, LOG_LEVEL_INF);
+// LOG_MODULE_REGISTER(boot, LOG_LEVEL_INF);
 
 std::unique_ptr<BOOT> BOOT::Instance = std::make_unique<BOOT>();
 
@@ -61,11 +61,12 @@ void BOOT::boot2app(void)
 	 * size*/
 	// vt = (struct arm_vector_table *)(CONFIG_FLASH_BASE_ADDRESS + CONFIG_FLASH_LOAD_SIZE +
 	// 				 CONFIG_CAN_ADAPTER_BOOT_ARG_PARTITION_LOAD_SIZE);
+	vt = (struct arm_vector_table *)(CONFIG_FLASH_BASE_ADDRESS + CONFIG_FLASH_LOAD_SIZE);
 
-	vt = (struct arm_vector_table *)(0x08010800);
+	// vt = (struct arm_vector_table *)(0x08010800);
 
-	LOG_INF("vt->msp:%p value:0x%08x", (void *)&vt->msp, vt->msp);
-	LOG_INF("vt->reset:%p value:0x%08x", (void *)&vt->reset, vt->reset);
+	// LOG_INF("vt->msp:%p value:0x%08x", (void *)&vt->msp, vt->msp);
+	// LOG_INF("vt->reset:%p value:0x%08x", (void *)&vt->reset, vt->reset);
 
 	if ((vt->msp & 0x2FFE0000) == 0x20000000) {
 		if (IS_ENABLED(CONFIG_SYSTEM_TIMER_HAS_DISABLE_SUPPORT)) {
@@ -80,7 +81,7 @@ void BOOT::boot2app(void)
 
 		((void (*)(void))vt->reset)();
 	} else {
-		LOG_INF("invalid vector table address:[%x]", vt->msp);
+		// LOG_INF("invalid vector table address:[%x]", vt->msp);
 	}
 }
 

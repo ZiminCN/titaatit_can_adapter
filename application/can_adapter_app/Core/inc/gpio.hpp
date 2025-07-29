@@ -13,32 +13,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#ifndef __GPIO_HPP__
+#define __GPIO_HPP__
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
-#include <zephyr/settings/settings.h>
+#include <functional> 
 
-#include "can.hpp"
-#include "fsm.hpp"
+#include <memory>
 
-LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
+class GPIO{
+        public:
+                GPIO() = default;
+                ~GPIO() = default;
+                GPIO(const GPIO &) = delete;
+                GPIO &operator=(const GPIO &) = delete;
+                static std::unique_ptr<GPIO> getInstance();
+                void init();
+                void set_48v_gpio_state(gpio_flags_t extra_flags);
+        private:
+                static std::unique_ptr<GPIO> Instance;
+                void gpio_callback(std::function<void()> callback);
+                void set_gpio_state(const struct gpio_dt_spec *spec, gpio_flags_t extra_flags);
+};
 
-int main(void)
-{
-	LOG_INF("APP Hello World! I am %s", CONFIG_BOARD);
-
-	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
-
-	fsm_driver_handle->fsm_init(FSM_INIT_STATE);
-
-	while (1) {
-		k_sleep(K_SECONDS(1));
-	}
-
-	return 0;
-}
+#endif // __GPIO_HPP__

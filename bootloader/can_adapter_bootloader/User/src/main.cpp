@@ -20,18 +20,18 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
+// #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 
 #include "boot.hpp"
 #include "can.hpp"
 #include "flash.hpp"
 
-LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
+// LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
 
 int main(void)
 {
-	LOG_INF("Hello World! I am %s", CONFIG_BOARD);
+	// LOG_INF("Hello World! I am %s", CONFIG_BOARD);
 	std::unique_ptr<BOOT> boot_manager_driver = BOOT::getInstance();
 
 	k_sleep(K_SECONDS(2));

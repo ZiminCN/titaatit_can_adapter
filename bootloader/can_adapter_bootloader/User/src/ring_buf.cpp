@@ -18,9 +18,9 @@
 #include <stdlib.h>
 
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
+// #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(ring_buf, LOG_LEVEL_INF);
+// LOG_MODULE_REGISTER(ring_buf, LOG_LEVEL_INF);
 
 bool RING_BUF::ring_buf_init(bool overwrite_flag, bool multi_thread_flag, uint16_t buf_size)
 {
@@ -34,7 +34,7 @@ bool RING_BUF::ring_buf_init(bool overwrite_flag, bool multi_thread_flag, uint16
 	this->ring_buf.param.free_data_count = buf_size;
 	void *new_ptr = realloc(this->ring_buf.core.buffer_ptr, this->ring_buf.core.buffer_size);
 	if (new_ptr == nullptr) {
-		LOG_ERR("ring_buf.core.buffer_ptr is null");
+		// LOG_ERR("ring_buf.core.buffer_ptr is null");
 		return false;
 	}
 	this->ring_buf.core.buffer_ptr = static_cast<uint8_t *>(new_ptr);
@@ -65,7 +65,7 @@ RING_BUF_STATE_E RING_BUF::is_ring_buffer_empty(void)
 	// }
 
 	if (this->ring_buf.param.free_data_count == this->ring_buf.core.buffer_size) {
-		LOG_INF("ring buffer is empty");
+		// LOG_INF("ring buffer is empty");
 		return RING_BUFFER_EMPTY;
 	}
 
@@ -81,7 +81,7 @@ RING_BUF_STATE_E RING_BUF::is_ring_buffer_full(void)
 	// }
 
 	if (this->ring_buf.param.write_data_count == this->ring_buf.core.buffer_size) {
-		LOG_INF("ring buffer is full");
+		// LOG_INF("ring buffer is full");
 		return RING_BUFFER_FULL;
 	}
 
@@ -100,7 +100,7 @@ int RING_BUF::write_data(uint8_t *data, uint16_t data_len)
 	this->ring_buf.state = this->is_ring_buffer_full();
 
 	if (this->ring_buf.param.free_data_count < data_len) {
-		LOG_INF("[Error] No Enough Buffer Space to write data");
+		// LOG_INF("[Error] No Enough Buffer Space to write data");
 		this->ring_buf.param.mutex_flag = 0;
 		return -1;
 	}
@@ -149,7 +149,7 @@ int RING_BUF::read_data(uint8_t *data, uint16_t data_len)
 	this->ring_buf.state = this->is_ring_buffer_empty();
 
 	if (this->ring_buf.param.write_data_count < data_len) {
-		LOG_INF("[Error] No Enough Buffer Data to read");
+		// LOG_INF("[Error] No Enough Buffer Data to read");
 		this->ring_buf.param.mutex_flag = 0;
 		return -1;
 	}
@@ -193,15 +193,15 @@ void RING_BUF::output_ring_buf_data()
 {
 
 	for (int i = 0; i < this->ring_buf.core.buffer_size; i++) {
-		LOG_INF("ring buffer[%d]: [%d]", i, this->ring_buf.core.buffer_ptr[i]);
+		// LOG_INF("ring buffer[%d]: [%d]", i, this->ring_buf.core.buffer_ptr[i]);
 	}
 }
 
 void RING_BUF::debug_LOG()
 {
-	LOG_INF("write index is [%d]", this->ring_buf.core.write_index);
-	LOG_INF("read index is [%d]", this->ring_buf.core.read_index);
+	// LOG_INF("write index is [%d]", this->ring_buf.core.write_index);
+	// LOG_INF("read index is [%d]", this->ring_buf.core.read_index);
 
-	LOG_INF("write data count is [%d]", this->ring_buf.param.write_data_count);
-	LOG_INF("free data count is [%d]", this->ring_buf.param.free_data_count);
+	// LOG_INF("write data count is [%d]", this->ring_buf.param.write_data_count);
+	// LOG_INF("free data count is [%d]", this->ring_buf.param.free_data_count);
 }

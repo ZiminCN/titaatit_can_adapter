@@ -15,9 +15,9 @@
 
 #include "flash.hpp"
 
-#include <zephyr/logging/log.h>
+// #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(flash_manager, LOG_LEVEL_INF);
+// LOG_MODULE_REGISTER(flash_manager, LOG_LEVEL_INF);
 
 std::unique_ptr<FLASH_MANAGER> FLASH_MANAGER::Instance = std::make_unique<FLASH_MANAGER>();
 std::unique_ptr<FACTORY_ARG_T> FLASH_MANAGER::factory_arg = std::make_unique<FACTORY_ARG_T>();
@@ -43,7 +43,7 @@ int FLASH_MANAGER::get_factory_arg_free_cnt()
 	flash_area_open(FACTORY_AREA, &temp_fa);
 
 	if (!flash_area_device_is_ready(temp_fa)) {
-		LOG_ERR("Flash area device is not ready!");
+		// LOG_ERR("Flash area device is not ready!");
 		flash_area_close(temp_fa);
 		return false;
 	}
@@ -75,7 +75,7 @@ void FLASH_MANAGER::read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data)
 	flash_area_open(FACTORY_AREA, &temp_fa);
 
 	if (!flash_area_device_is_ready(temp_fa)) {
-		LOG_ERR("Flash area device is not ready!");
+		// LOG_ERR("Flash area device is not ready!");
 		flash_area_close(temp_fa);
 	}
 
@@ -99,7 +99,7 @@ bool FLASH_MANAGER::write_factory_arg_data(FACTORY_ARG_T *factory_arg_data)
 	flash_area_get_sectors(FACTORY_AREA, &sec_cnt, &boot_arg_sector);
 
 	if (!flash_area_device_is_ready(temp_fa)) {
-		LOG_ERR("Flash area device is not ready!");
+		// LOG_ERR("Flash area device is not ready!");
 		flash_area_close(temp_fa);
 		return false;
 	}
@@ -128,7 +128,7 @@ bool FLASH_MANAGER::erase_app_flash_page(uint8_t page_num)
 	flash_area_open(APP_AREA, &temp_fa);
 
 	if (!flash_area_device_is_ready(temp_fa)) {
-		LOG_ERR("Flash area device is not ready!");
+		// LOG_ERR("Flash area device is not ready!");
 		flash_area_close(temp_fa);
 		return false;
 	}

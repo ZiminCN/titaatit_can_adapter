@@ -26,6 +26,7 @@
 #include "ring_buf.hpp"
 #include "timer.hpp"
 #include "usb_acm.hpp"
+#include "mosfet_control.hpp"
 #include <memory>
 
 #define DEFAULT_RATE  10
@@ -97,6 +98,7 @@ class FSM
 	std::unique_ptr<CANFD_FORWARD_PROTOCOL> canfd_forward_protocol_handle =
 		CANFD_FORWARD_PROTOCOL::getInstance();
 	std::unique_ptr<USB_ACM> usb_acm_handle = USB_ACM::getInstance();
+	std::unique_ptr<MOSFET_CONTROL> mosfet_control_handle = MOSFET_CONTROL::getInstance();
 	RING_BUF ring_buf_handle;
 
 	int test_cnt_num = 0;

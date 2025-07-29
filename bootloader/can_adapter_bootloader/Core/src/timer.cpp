@@ -15,9 +15,9 @@
 
 #include "timer.hpp"
 
-#include <zephyr/logging/log.h>
+// #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(timer, LOG_LEVEL_INF);
+// LOG_MODULE_REGISTER(timer, LOG_LEVEL_INF);
 
 std::unique_ptr<TIMER> TIMER::Instance = std::make_unique<TIMER>();
 std::unique_ptr<TIMER_FREQ_T> TIMER::timer_freq_cfg = std::make_unique<TIMER_FREQ_T>();

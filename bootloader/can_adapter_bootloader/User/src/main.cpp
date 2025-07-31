@@ -54,13 +54,12 @@ void wait_for_ota_signal_stop_callback(struct k_timer *timer)
 	timer_timeout_flag = true;
 }
 
-static int deadloop_cnt = 0;
 void avoid_deadloop_expiry_callback(struct k_timer *timer)
 {
-	deadloop_cnt += 1;
+	boot_driver->set_deadloop_cnt(boot_driver->get_deadloop_cnt() + 1);
 
-	// 200ms * 50 = 10s
-	if (deadloop_cnt > 50) {
+	// 200ms * 25 = 5s, timeout 5 sec
+	if (boot_driver->get_deadloop_cnt() > 25) {
 		// reboot
 		timer_driver->timer_stop(timer_driver->get_deadloop_timer());
 		return;
@@ -70,7 +69,7 @@ void avoid_deadloop_expiry_callback(struct k_timer *timer)
 void avoid_deadloop_stop_callback(struct k_timer *timer)
 {
 	// reboot
-	deadloop_cnt = 0;
+	boot_driver->set_deadloop_cnt(0);
 	timer_timeout_flag = true;
 	flash_manager_driver->read_factory_arg_data(&factory_arg);
 	factory_arg.arg_status = FACTORY_ARG_STATUS_ERROR;
@@ -111,11 +110,13 @@ int main(void)
 
 	// if get ota signal timeout, boot to app
 	if (boot_driver->get_ota_signal_timeout_flag() != false) {
-		boot_driver->boot2app();
+		// boot_driver->boot2app();
+		boot_driver->boot2boot();
 	}
 
 	// enter ota mode, add a 10 sec timer to avoid dead loop
 	timer_timeout_flag = false;
+	boot_driver->set_deadloop_cnt(0);
 	timer_driver->timer_start(timer_driver->get_deadloop_timer(), K_NO_WAIT, K_MSEC(200));
 
 	while (1) {

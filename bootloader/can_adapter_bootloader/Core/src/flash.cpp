@@ -14,9 +14,10 @@
 // limitations under the License.
 
 #include "app_version.h"
-#include "flash.hpp"
 
 #include <limits.h>
+
+#include "flash.hpp"
 
 std::unique_ptr<FLASH_MANAGER> FLASH_MANAGER::Instance = std::make_unique<FLASH_MANAGER>();
 
@@ -81,6 +82,8 @@ void FLASH_MANAGER::init_new_factory_arg_data(FACTORY_ARG_T *factory_arg_data)
 	factory_arg_data->magic_number = MAGIC_NUMBER;
 	factory_arg_data->is_boot_update_flag = 0x00U;
 	factory_arg_data->is_app_update_flag = 0x00U;
+	factory_arg_data->boot_checkpoint_flag = 0x00U;
+	factory_arg_data->app_checkpoint_flag = 0x00U;
 	factory_arg_data->arg_status = FACTORY_ARG_NOT_READY;
 
 	if (boot_version > UINT32_MAX) {
@@ -98,7 +101,6 @@ void FLASH_MANAGER::init_new_factory_arg_data(FACTORY_ARG_T *factory_arg_data)
 	factory_arg_data->boot_build_timestamp = boot_timestamp;
 	factory_arg_data->boot_version = boot_version;
 
-	factory_arg_data->reserved_data_0 = 0x0000U; // reserved 0
 	factory_arg_data->reserved_data_1 = 0x0000U; // reserved 1
 }
 

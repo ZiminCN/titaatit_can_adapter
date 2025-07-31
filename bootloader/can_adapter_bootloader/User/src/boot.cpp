@@ -20,6 +20,7 @@
 #include <zephyr/kernel.h>
 
 std::unique_ptr<BOOT> BOOT::Instance = std::make_unique<BOOT>();
+std::unique_ptr<OTA_UPGRADE_INFO_T> ota_upgrade_info = std::make_unique<OTA_UPGRADE_INFO_T>();
 
 std::unique_ptr<BOOT> BOOT::getInstance()
 {
@@ -54,8 +55,8 @@ void BOOT::boot2app(void)
 {
 	struct arm_vector_table *vt;
 
-	/*application base address = flash base address + bootloader size + bootloader arg
-	 * size*/
+	/*application base address = flash base address + bootloader size + bootloader
+	 * arg size*/
 	vt = (struct arm_vector_table *)(CONFIG_FLASH_BASE_ADDRESS + CONFIG_FLASH_LOAD_SIZE +
 					 CONFIG_CAN_ADAPTER_BOOT_ARG_PARTITION_LOAD_SIZE);
 
@@ -97,9 +98,11 @@ void BOOT::boot2boot(void)
 	}
 }
 
-// refer to "Docs/RM0440.pdf" 1.5(Page: 75/2140) about Product category definition
+// refer to "Docs/RM0440.pdf" 1.5(Page: 75/2140) about Product category
+// definition
 
-//! refer to "Docs/RM0440.pdf" 3.7.8(Page: 138/2140) about  Flash option register
+//! refer to "Docs/RM0440.pdf" 3.7.8(Page: 138/2140) about  Flash option
+//! register
 
 void BOOT::set_ota_signal_timeout_flag(bool flag)
 {
@@ -111,24 +114,54 @@ bool BOOT::get_ota_signal_timeout_flag(void)
 	return this->ota_signal_timeout_flag;
 }
 
-void BOOT::set_deadloop_flag(bool flag)
+void BOOT::set_deadloop_cnt(int cnt)
 {
-	this->deadloop_flag = flag;
+	this->deadloop_cnt = cnt;
 }
 
-bool BOOT::get_deadloop_flag(void)
+int BOOT::get_deadloop_cnt(void)
 {
-	return this->deadloop_flag;
+	return this->deadloop_cnt;
 }
 
 void BOOT::init(void)
 {
 	this->ota_signal_timeout_flag = true;
-	this->deadloop_flag = false;
+	this->deadloop_cnt = 0;
 	this->can_driver->init();
 }
 
+static struct can_frame A2R_ota_ack_frame = {
+	.id = CANFD_ID_AS_A2R_OTA_ACK,
+	.dlc = can_bytes_to_dlc(64),
+	.flags = CAN_FRAME_FDF | CAN_FRAME_BRS,
+};
+static struct can_frame A2A_ota_ack_frame = {
+	.id = CANFD_ID_AS_A2A_OTA_ACK,
+	.dlc = can_bytes_to_dlc(64),
+	.flags = CAN_FRAME_FDF | CAN_FRAME_BRS,
+};
+
+void BOOT::return_adapter2robot_ota_ack(can_frame *frame)
+{
+	this->can_driver->send_can_msg(can_driver->get_canfd_2_dev(), frame);
+}
+
+void BOOT::return_adapter2adapter_ota_ack(can_frame *frame)
+{
+	this->can_driver->send_can_msg(can_driver->get_canfd_3_dev(), frame);
+}
+
 void BOOT::ota_process(const device *dev, can_frame *frame)
+{
+	switch (frame->id) {
+	default: {
+		break;
+	}
+	}
+}
+
+void BOOT::ota_upgrade_app_firmware(const device *dev, can_frame *frame)
 {
 }
 
@@ -137,12 +170,18 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 	BOOT *boot_driver = static_cast<BOOT *>(user_data);
 
 	switch (frame->id) {
-	case CANFD_ID_AS_OTA_SIGNAL: {
+	case CANFD_ID_AS_R2A_OTA_SIGNAL: {
 		boot_driver->set_ota_signal_timeout_flag(false);
+		memcpy(A2R_ota_ack_frame.data, frame->data, A2R_ota_ack_frame.dlc);
+		boot_driver->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
 		break;
 	};
-	case CANFD_ID_AS_OTA_PACKAGE: {
+	case CANFD_ID_AS_R2A_OTA_UPGRADE: {
 		boot_driver->ota_process(dev, frame);
+		break;
+	};
+	case CANFD_ID_AS_R2A_OTA_PACKAGE: {
+		boot_driver->ota_upgrade_app_firmware(dev, frame);
 		break;
 	};
 	default: {

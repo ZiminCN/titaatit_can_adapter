@@ -24,8 +24,17 @@
 
 #define FILTER_ID_ARRAY_SIZE 10
 
-#define CANFD_ID_AS_OTA_SIGNAL	0x382U
-#define CANFD_ID_AS_OTA_PACKAGE 0x383U
+// robot to adapter canfd bus
+#define CANFD_ID_AS_R2A_OTA_SIGNAL  0x382U
+#define CANFD_ID_AS_R2A_OTA_UPGRADE 0x383U
+#define CANFD_ID_AS_R2A_OTA_PACKAGE 0x384U
+#define CANFD_ID_AS_A2R_OTA_ACK	    0x385U
+
+// adapter to adapter canfd bus
+#define CANFD_ID_AS_A2A_OTA_SIGNAL  0x202U
+#define CANFD_ID_AS_A2A_OTA_UPGRADE 0x203U
+#define CANFD_ID_AS_A2A_OTA_PACKAGE 0x204U
+#define CANFD_ID_AS_A2A_OTA_ACK	    0x205U
 
 typedef struct {
 	enum can_state state;

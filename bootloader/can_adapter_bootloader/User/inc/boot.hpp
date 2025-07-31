@@ -22,24 +22,36 @@
 /**
  * @brief Bootloader OTA Process
  *
- * 1. Bootloader/Application will wait for OTA signal to enter OTA process.
- * 	OTA signal: canfd => 	ID: 0x382,
- * 				Data: 0xDEADC0DE, (This is the canfd bus from the robot to the
- * adapter). canfd   =>    ID: 0x202, Data: 0xDEADC0DE, (This is the canfd bus from the adapter to
- * the adapter). No Return ACK!
- * 2. Bootloader will wait for OTA Order as upgrade mode, Support upgrade methods of one to one and
- * one to two one to one: Robot -> Adapter one to two: Robot -> Adapter -> Adapter Return ACK!
- * 3. Bootloader will wait for OTA Order as firmware info, The app version only allows upward
- * upgrades. Return ACK!
- * 4. Bootloader will wait for OTA Order as firmware package, Only perform verification for the
- * entire firmware package. Return ACK for every package!
+ * 1. Bootloader/Application will wait for  OTA signal to enter OTA process.
+ * OTA signal: canfd => ID: 0x382, Data: 0xDEADC0DE, (This is the canfd bus from the robot to the
+ * adapter). canfd => ID: 0x202, Data: 0xDEADC0DE, (This is the canfd bus from the adapter to the
+ * adapter). Bootloader will return ACK!
+ *
+ * 2. Bootloader will wait for OTA Order as upgrade mode, Support upgrade
+ * methods of one to one and one to two one to one: Robot -> Adapter. one to two:
+ * Robot -> Adapter -> Adapter. Return ACK!
+ *
+ * Need to send the MCU Device ID and Software Version to the Robot.
+ *
+ * 3. Bootloader will wait for OTA Order as firmware info, The app version
+ * allows upward upgrades and forced upgrade. Return ACK!
+ *
+ * 4. Bootloader will wait for OTA Order as firmware package, Only perform
+ * verification for the entire firmware package. Return ACK for every package!
  */
 
 typedef enum {
-	OTA_ORDER_AS_UPGRADE_MODE = 0x00,
-	OTA_ORDER_AS_FIRMWARE_INFO = 0x01,
-	OTA_ORDER_AS_PACKAGE = 0x02,
+	OTA_ORDER_AS_DEFAULT = 0x00,
+	OTA_ORDER_AS_UPGRADE_MODE = 0x01,
+	OTA_ORDER_AS_FIRMWARE_INFO = 0x02,
+	OTA_ORDER_AS_PACKAGE = 0x03,
 } OTA_ORDER_E;
+
+typedef enum {
+	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_DEFAULT = 0X00,
+	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_UPWARD_UPGRADE = 0X01,
+	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE = 0X02,
+} OTA_ORDER_AS_FIRMWARE_INFO_ORDER_E;
 
 typedef struct {
 	uint32_t firmware_size;
@@ -52,6 +64,13 @@ typedef struct {
 	uint32_t current_package_index;
 	uint32_t firmware_package[6];
 } OTA_PACKAGE_T;
+
+typedef struct {
+	OTA_ORDER_E ota_order;
+	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_E ota_order_as_firmware_info_order;
+	OTA_FIRMWARE_INFO_T ota_firmware_info;
+	OTA_PACKAGE_T ota_package;
+} OTA_UPGRADE_INFO_T;
 
 typedef enum {
 	BOOT_PROCESS_NO_UPDATE_SIGNAL = 0x00,
@@ -74,21 +93,25 @@ class BOOT
 	void boot2boot(void);
 	void init(void);
 	void register_ota_canfd_data_signal();
-	void ota_process(const device *dev, can_frame *frame);
 	void set_ota_signal_timeout_flag(bool flag);
 	bool get_ota_signal_timeout_flag(void);
-	void set_deadloop_flag(bool flag);
-	bool get_deadloop_flag(void);
+	void set_deadloop_cnt(int cnt);
+	int get_deadloop_cnt(void);
 
       private:
 	static std::unique_ptr<BOOT> Instance;
+	static std::unique_ptr<OTA_UPGRADE_INFO_T> ota_upgrade_info;
 	std::shared_ptr<CAN> can_driver = CAN::getInstance();
 	inline static bool ota_signal_timeout_flag = true;
-	inline static bool deadloop_flag = false; // true: deadloop, false: not deadloop
+	inline static int deadloop_cnt = 0;
 	static void robot2adapter_ota_process(const device *dev, can_frame *frame, void *user_data);
 	static void adapter2adapter_ota_process(const device *dev, can_frame *frame,
 						void *user_data);
 	void cleanup_arm_nvic(void);
+	void return_adapter2robot_ota_ack(can_frame *frame);
+	void return_adapter2adapter_ota_ack(can_frame *frame);
+	void ota_upgrade_app_firmware(const device *dev, can_frame *frame);
+	void ota_process(const device *dev, can_frame *frame);
 };
 
 #endif // __BOOT_HPP__

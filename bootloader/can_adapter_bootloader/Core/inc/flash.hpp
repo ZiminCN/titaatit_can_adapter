@@ -38,6 +38,8 @@ typedef struct {
 	uint32_t magic_number;
 	uint8_t is_boot_update_flag;
 	uint8_t is_app_update_flag;
+	uint8_t boot_checkpoint_flag;
+	uint8_t app_checkpoint_flag;
 
 	FACTORY_ARG_STATUS_E arg_status;
 
@@ -48,7 +50,6 @@ typedef struct {
 	uint32_t boot_version;
 	uint32_t app_version;
 
-	uint16_t reserved_data_0;
 	uint32_t reserved_data_1;
 } FACTORY_ARG_T;
 

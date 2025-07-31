@@ -35,6 +35,7 @@
                 "string": "cpp",
                 "string_view": "cpp",
                 "array": "cpp",
-                "vector": "cpp"
+                "vector": "cpp",
+                "*.in": "cpp"
         }
 }

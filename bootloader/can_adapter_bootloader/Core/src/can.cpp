@@ -15,10 +15,6 @@
 
 #include "can.hpp"
 
-// #include <zephyr/logging/log.h>
-
-// LOG_MODULE_REGISTER(can, LOG_LEVEL_INF);
-
 static const struct device *canfd_1_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canfd1));
 static const struct device *canfd_2_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canfd2));
 static const struct device *canfd_3_dev = DEVICE_DT_GET(DT_CHOSEN(zephyr_canfd3));
@@ -68,15 +64,12 @@ bool CAN::init()
 	int ret = 0;
 
 	if (!device_is_ready(canfd_1_dev)) {
-		// LOG_INF("CANFD device 1 is not ready");
 	}
 
 	if (!device_is_ready(canfd_2_dev)) {
-		// LOG_INF("CANFD device 2 is not ready");
 	}
 
 	if (!device_is_ready(canfd_3_dev)) {
-		// LOG_INF("CANFD device 3 is not ready");
 	}
 
 	can_set_mode(canfd_1_dev, CAN_MODE_FD);
@@ -92,23 +85,19 @@ bool CAN::init()
 
 	ret = can_start(canfd_1_dev);
 	if (ret < 0) {
-		// LOG_ERR("Failed to start CANFD device 1: %d", ret);
 		return false;
 	}
 
 	ret = can_start(canfd_2_dev);
 	if (ret < 0) {
-		// LOG_ERR("Failed to start CANFD device 2: %d", ret);
 		return false;
 	}
 
 	ret = can_start(canfd_3_dev);
 	if (ret < 0) {
-		// LOG_ERR("Failed to start CANFD device 3: %d", ret);
 		return false;
 	}
 
-	// LOG_INF("CANFD Driver Init Success!");
 	return true;
 }
 
@@ -137,7 +126,6 @@ can_bus_status *CAN::get_can_bus_status(const struct device *dev)
 		return canfd_3_dev_bus_status.get();
 	}
 
-	// LOG_ERR("Unknown CAN device!");
 	return nullptr;
 }
 
@@ -167,11 +155,8 @@ int CAN::add_can_filter(const struct device *dev, k_msgq *msgq, const struct can
 	filter_id = can_add_rx_filter_msgq(dev, msgq, filter);
 
 	if (filter_id < 0) {
-		// LOG_ERR("Add CAN filter ID:[%x] failed!", filter_id);
 		return filter_id;
 	}
-
-	// LOG_INF("Add CAN filter ID:[%x]!", filter_id);
 
 	can_bus_status *can_bus_status = this->get_can_bus_status(dev);
 
@@ -182,17 +167,14 @@ int CAN::add_can_filter(const struct device *dev, k_msgq *msgq, const struct can
 }
 
 int CAN::add_can_filter(const struct device *dev, const struct can_filter *filter,
-			can_rx_callback_t callback)
+			can_rx_callback_t callback, void *user_data)
 {
 	uint8_t filter_id = 0x00;
-	filter_id = can_add_rx_filter(dev, callback, (void *)dev, filter);
+	filter_id = can_add_rx_filter(dev, callback, user_data, filter);
 
 	if (filter_id < 0) {
-		// LOG_ERR("Add CAN filter ID:[%x] failed!", filter_id);
 		return filter_id;
 	}
-
-	// LOG_INF("Add CAN filter ID:[%x]!", filter_id);
 
 	can_bus_status *can_bus_status = this->get_can_bus_status(dev);
 
@@ -239,7 +221,6 @@ void CAN::auto_recovery_can_bus_status_callback(const struct device *dev, enum c
 	if (state == CAN_STATE_BUS_OFF) {
 
 		if (can_recover(dev, K_MSEC(100)) != 0) {
-			// LOG_INF("Recovery timed out\n");
 		}
 	}
 }

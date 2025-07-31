@@ -13,14 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "app_version.h"
 #include "flash.hpp"
 
-// #include <zephyr/logging/log.h>
-
-// LOG_MODULE_REGISTER(flash_manager, LOG_LEVEL_INF);
+#include <limits.h>
 
 std::unique_ptr<FLASH_MANAGER> FLASH_MANAGER::Instance = std::make_unique<FLASH_MANAGER>();
-std::unique_ptr<FACTORY_ARG_T> FLASH_MANAGER::factory_arg = std::make_unique<FACTORY_ARG_T>();
 
 std::unique_ptr<FLASH_MANAGER> FLASH_MANAGER::getInstance()
 {
@@ -43,7 +41,6 @@ int FLASH_MANAGER::get_factory_arg_free_cnt()
 	flash_area_open(FACTORY_AREA, &temp_fa);
 
 	if (!flash_area_device_is_ready(temp_fa)) {
-		// LOG_ERR("Flash area device is not ready!");
 		flash_area_close(temp_fa);
 		return false;
 	}
@@ -66,6 +63,45 @@ int FLASH_MANAGER::get_factory_arg_free_cnt()
 	return free_cnt;
 }
 
+bool FLASH_MANAGER::check_factory_arg_data_is_void(FACTORY_ARG_T *factory_arg_data)
+{
+	if (factory_arg_data->magic_number == MAGIC_NUMBER) {
+		return false;
+	}
+
+	return true;
+}
+
+void FLASH_MANAGER::init_new_factory_arg_data(FACTORY_ARG_T *factory_arg_data)
+{
+	//! need to check if just a bl
+	uint32_t boot_version = static_cast<uint32_t>(APP_VERSION);
+	uint32_t boot_timestamp = static_cast<uint32_t>(APP_BUILD_TIMESTAMP);
+
+	factory_arg_data->magic_number = MAGIC_NUMBER;
+	factory_arg_data->is_boot_update_flag = 0x00U;
+	factory_arg_data->is_app_update_flag = 0x00U;
+	factory_arg_data->arg_status = FACTORY_ARG_NOT_READY;
+
+	if (boot_version > UINT32_MAX) {
+		// error
+		boot_version = 0xFFFFFFFF;
+		factory_arg_data->arg_status = FACTORY_ARG_STATUS_ERROR;
+	}
+
+	if (boot_timestamp > UINT32_MAX) {
+		// error
+		boot_timestamp = 0xFFFFFFFF;
+		factory_arg_data->arg_status = FACTORY_ARG_STATUS_ERROR;
+	}
+
+	factory_arg_data->boot_build_timestamp = boot_timestamp;
+	factory_arg_data->boot_version = boot_version;
+
+	factory_arg_data->reserved_data_0 = 0x0000U; // reserved 0
+	factory_arg_data->reserved_data_1 = 0x0000U; // reserved 1
+}
+
 void FLASH_MANAGER::read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data)
 {
 	const struct flash_area *temp_fa;
@@ -75,7 +111,6 @@ void FLASH_MANAGER::read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data)
 	flash_area_open(FACTORY_AREA, &temp_fa);
 
 	if (!flash_area_device_is_ready(temp_fa)) {
-		// LOG_ERR("Flash area device is not ready!");
 		flash_area_close(temp_fa);
 	}
 
@@ -99,14 +134,12 @@ bool FLASH_MANAGER::write_factory_arg_data(FACTORY_ARG_T *factory_arg_data)
 	flash_area_get_sectors(FACTORY_AREA, &sec_cnt, &boot_arg_sector);
 
 	if (!flash_area_device_is_ready(temp_fa)) {
-		// LOG_ERR("Flash area device is not ready!");
 		flash_area_close(temp_fa);
 		return false;
 	}
 
 	do {
-		// ret = flash_area_erase(temp_fa, 0, boot_arg_sector.fs_size);
-		ret = flash_area_erase(temp_fa, 0, 1024);
+		ret = flash_area_erase(temp_fa, 0, temp_fa->fa_size);
 		retry--;
 	} while ((ret != 0) && (retry >= 0));
 
@@ -128,7 +161,6 @@ bool FLASH_MANAGER::erase_app_flash_page(uint8_t page_num)
 	flash_area_open(APP_AREA, &temp_fa);
 
 	if (!flash_area_device_is_ready(temp_fa)) {
-		// LOG_ERR("Flash area device is not ready!");
 		flash_area_close(temp_fa);
 		return false;
 	}
@@ -138,6 +170,33 @@ bool FLASH_MANAGER::erase_app_flash_page(uint8_t page_num)
 	do {
 		ret = flash_area_erase(temp_fa, page_num * app_sector.fs_size,
 				       (app_sector.fs_size));
+		retry--;
+	} while ((ret != 0) && (retry >= 0));
+
+	flash_area_close(temp_fa);
+
+	return true;
+}
+
+bool FLASH_MANAGER::erase_all_app_flash()
+{
+	const struct flash_area *temp_fa;
+	struct flash_sector app_sector;
+	uint32_t sec_cnt = 1;
+	int ret = 0;
+	int retry = 3;
+
+	flash_area_open(APP_AREA, &temp_fa);
+
+	if (!flash_area_device_is_ready(temp_fa)) {
+		flash_area_close(temp_fa);
+		return false;
+	}
+
+	flash_area_get_sectors(APP_AREA, &sec_cnt, &app_sector);
+
+	do {
+		ret = flash_area_erase(temp_fa, 0, (temp_fa->fa_size));
 		retry--;
 	} while ((ret != 0) && (retry >= 0));
 

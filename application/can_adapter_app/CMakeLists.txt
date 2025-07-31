@@ -7,9 +7,12 @@ set(BOARD_ROOT ${CMAKE_CURRENT_LIST_DIR}/../../)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Core/inc)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/User/inc)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/SoftwareVersion)
 
 file(GLOB USER_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/User/src/*.c*)
 file(GLOB CORE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Core/src/*.c*)
+
+include(${CMAKE_CURRENT_LIST_DIR}/SoftwareVersion/version.cmake)
 
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(can_adapter)

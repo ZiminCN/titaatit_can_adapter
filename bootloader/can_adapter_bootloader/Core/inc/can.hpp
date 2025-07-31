@@ -24,6 +24,9 @@
 
 #define FILTER_ID_ARRAY_SIZE 10
 
+#define CANFD_ID_AS_OTA_SIGNAL	0x382U
+#define CANFD_ID_AS_OTA_PACKAGE 0x383U
+
 typedef struct {
 	enum can_state state;
 	uint32_t bus_tx_count;
@@ -48,7 +51,7 @@ class CAN
 	int send_can_msg(const struct device *dev, const struct can_frame *frame);
 	int add_can_filter(const struct device *dev, k_msgq *msgq, const struct can_filter *filter);
 	int add_can_filter(const struct device *dev, const struct can_filter *filter,
-			   can_rx_callback_t callback);
+			   can_rx_callback_t callback, void *user_data);
 	can_bus_status *get_can_bus_status(const struct device *dev);
 	static const struct device *const get_canfd_1_dev();
 	static const struct device *const get_canfd_2_dev();

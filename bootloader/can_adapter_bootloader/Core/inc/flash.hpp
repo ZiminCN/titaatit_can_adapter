@@ -29,32 +29,27 @@
 #define FACTORY_AREA FIXED_PARTITION_ID(factory_partition)
 
 typedef enum {
-	BOOT_OK = 0x00,
-	BOOT_ENTER_UPDATE = 0x01,
-	BOOT_ERROR = 0xFF,
-} BOOT_STATUS_E;
+	FACTORY_ARG_STATUS_OK,
+	FACTORY_ARG_NOT_READY,
+	FACTORY_ARG_STATUS_ERROR,
+} FACTORY_ARG_STATUS_E;
 
 typedef struct {
 	uint32_t magic_number;
 	uint8_t is_boot_update_flag;
 	uint8_t is_app_update_flag;
 
-	BOOT_STATUS_E boot_status;
+	FACTORY_ARG_STATUS_E arg_status;
 
 	// based from 1970-01-01 00:00:00 UTC
 	uint32_t boot_build_timestamp;
 	uint32_t app_build_timestamp;
 
-	uint8_t boot_version;
-	uint8_t boot_version_major;
-	uint8_t boot_version_minor;
-	uint8_t app_version;
-	uint8_t app_version_major;
-	uint8_t app_version_minor;
-	uint8_t hw_version;
+	uint32_t boot_version;
+	uint32_t app_version;
 
-	uint32_t boot_crc_value;
-	uint32_t app_crc_value;
+	uint16_t reserved_data_0;
+	uint32_t reserved_data_1;
 } FACTORY_ARG_T;
 
 class FLASH_MANAGER
@@ -64,15 +59,18 @@ class FLASH_MANAGER
 	~FLASH_MANAGER() = default;
 	FLASH_MANAGER(const FLASH_MANAGER &) = delete;
 	FLASH_MANAGER &operator=(const FLASH_MANAGER &) = delete;
+	static std::unique_ptr<FACTORY_ARG_T> factory_arg;
 	static std::unique_ptr<FLASH_MANAGER> getInstance();
 	bool init();
 	bool erase_app_flash_page(uint8_t page_num);
+	bool erase_all_app_flash();
+	void init_new_factory_arg_data(FACTORY_ARG_T *factory_arg_data);
+	bool check_factory_arg_data_is_void(FACTORY_ARG_T *factory_arg_data);
 	void read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data);
 	bool write_factory_arg_data(FACTORY_ARG_T *factory_arg_data);
 
       private:
 	static std::unique_ptr<FLASH_MANAGER> Instance;
-	static std::unique_ptr<FACTORY_ARG_T> factory_arg;
 	int get_factory_arg_free_cnt();
 };
 

@@ -33,7 +33,8 @@ typedef struct {
 } TIMER_FREQ_T;
 
 typedef struct {
-	struct k_timer can_adapter_heartbeat_timer;
+	struct k_timer ota_signal_timer; // 3 sec
+	struct k_timer deadloop_timer;	 // 10 sec
 } TIMER_MANGEMENT_GPOUP_T;
 
 class TIMER
@@ -61,7 +62,8 @@ class TIMER
 	uint32_t get_timer_freq_cfg_overflow_count();
 	void set_timer_freq_cfg_cycle_count(uint32_t cycle_count);
 	uint32_t get_timer_freq_cfg_cycle_count();
-	struct k_timer *get_can_adapter_heartbeat_timer();
+	struct k_timer *get_ota_signal_timer();
+	struct k_timer *get_deadloop_timer();
 
       private:
 	static std::unique_ptr<TIMER> Instance;

@@ -422,23 +422,31 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_bus_order_data_callback(const de
 	forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev, &canfd_data2robot);
 }
 
+static bool stable_connection_flag = false;
+static int stable_heartbeat_cnt = 0;
+static int lost_heartbeat_cnt = 0;
 void CANFD_FORWARD_PROTOCOL::data2robot_heartbeat_data_callback(const device *dev, can_frame *frame,
 								void *user_data)
 {
 	ARG_UNUSED(user_data);
 	adapter_heart_beat->is_received_heartbeat = true;
+	stable_heartbeat_cnt += 1;
 	adapter_heart_beat->timeout_cnt = 0x00U;
 
 	// can frame heartbeat data[2] is the is_master_dev, data[3] is the
 	// is_slave_dev another adapter is master dev
-	if ((frame->data[2] == 0x01U) && (frame->data[3] == 0x00U)) {
-		// this adapter is slave dev
-		adapter_heart_beat->is_master_dev = false;
-		adapter_heart_beat->is_slave_dev = true;
-	} else if ((frame->data[2] == 0x00U) && (frame->data[3] == 0x01U)) {
-		// otherwise, this adapter is master dev
-		adapter_heart_beat->is_master_dev = true;
-		adapter_heart_beat->is_slave_dev = false;
+
+	if(stable_heartbeat_cnt >= 20){
+		stable_connection_flag = true;
+		if ((frame->data[2] == 0x01U) && (frame->data[3] == 0x00U)) {
+			// this adapter is slave dev
+			adapter_heart_beat->is_master_dev = false;
+			adapter_heart_beat->is_slave_dev = true;
+		} else if ((frame->data[2] == 0x00U) && (frame->data[3] == 0x01U)) {
+			// otherwise, this adapter is master dev
+			adapter_heart_beat->is_master_dev = true;
+			adapter_heart_beat->is_slave_dev = false;
+		}
 	}
 }
 
@@ -500,12 +508,26 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 {
 	if (adapter_heart_beat->is_received_heartbeat == true) {
 		adapter_heart_beat->timeout_cnt += 1;
+
+		if(stable_connection_flag == false){
+			lost_heartbeat_cnt += 1;
+
+			// it means lost some heartbeat at the very beginning of the docking process
+			if(((lost_heartbeat_cnt - stable_heartbeat_cnt) >= 5)){
+				lost_heartbeat_cnt = 0;
+				stable_heartbeat_cnt = 0;
+			}
+		}
+
 		if (adapter_heart_beat->timeout_cnt >= 10) {
 			LOG_INF("Loss Heart Beat...");
 			adapter_heart_beat->is_received_heartbeat = false;
 			adapter_heart_beat->is_master_dev = false;
 			adapter_heart_beat->is_slave_dev = false;
 			adapter_heart_beat->timeout_cnt = 0;
+			lost_heartbeat_cnt = 0;
+			stable_heartbeat_cnt = 0;
+			stable_connection_flag = false;
 		}
 	}
 

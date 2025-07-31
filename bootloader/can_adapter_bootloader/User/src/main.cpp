@@ -20,51 +20,103 @@
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/kernel.h>
-// #include <zephyr/logging/log.h>
 #include <zephyr/settings/settings.h>
 
 #include "boot.hpp"
-#include "can.hpp"
 #include "flash.hpp"
+#include "timer.hpp"
 
-// LOG_MODULE_REGISTER(main, LOG_LEVEL_INF);
+static FACTORY_ARG_T factory_arg;
+
+std::unique_ptr<FLASH_MANAGER> flash_manager_driver = FLASH_MANAGER::getInstance();
+std::unique_ptr<BOOT> boot_driver = BOOT::getInstance();
+std::unique_ptr<TIMER> timer_driver = TIMER::getInstance();
+
+static int wait_for_ota_timeout_cnt = 0;
+static bool timer_timeout_flag = false;
+void wait_for_ota_signal_expiry_callback(struct k_timer *timer)
+{
+	if (boot_driver->get_ota_signal_timeout_flag() == true) {
+		wait_for_ota_timeout_cnt += 1;
+	} else {
+		timer_driver->timer_stop(timer_driver->get_ota_signal_timer());
+		return;
+	}
+
+	if (wait_for_ota_timeout_cnt > 30) {
+		timer_driver->timer_stop(timer_driver->get_ota_signal_timer());
+		return;
+	}
+}
+void wait_for_ota_signal_stop_callback(struct k_timer *timer)
+{
+	wait_for_ota_timeout_cnt = 0;
+	timer_timeout_flag = true;
+}
+
+static int deadloop_cnt = 0;
+void avoid_deadloop_expiry_callback(struct k_timer *timer)
+{
+	deadloop_cnt += 1;
+
+	// 200ms * 50 = 10s
+	if (deadloop_cnt > 50) {
+		// reboot
+		timer_driver->timer_stop(timer_driver->get_deadloop_timer());
+		return;
+	}
+}
+
+void avoid_deadloop_stop_callback(struct k_timer *timer)
+{
+	// reboot
+	deadloop_cnt = 0;
+	timer_timeout_flag = true;
+	flash_manager_driver->read_factory_arg_data(&factory_arg);
+	factory_arg.arg_status = FACTORY_ARG_STATUS_ERROR;
+	flash_manager_driver->write_factory_arg_data(&factory_arg);
+	boot_driver->boot2boot();
+}
 
 int main(void)
 {
-	// LOG_INF("Hello World! I am %s", CONFIG_BOARD);
+	bool ret_bool;
 
-	//! Use STM32 HAL, or set single bank flash at Jlink/Ozone
-	HAL_FLASHEx_OB_DBankConfig(OB_DBANK_128_BITS);
-	//! Use STM32 HAL, or set single bank flash at Jlink/Ozone
+	timer_driver->timer_init(timer_driver->get_ota_signal_timer(),
+				 wait_for_ota_signal_expiry_callback,
+				 wait_for_ota_signal_stop_callback);
+	timer_driver->timer_init(timer_driver->get_deadloop_timer(), avoid_deadloop_expiry_callback,
+				 avoid_deadloop_stop_callback);
+	boot_driver->init();
 
-	std::unique_ptr<BOOT> boot_manager_driver = BOOT::getInstance();
+	// self-check
+	flash_manager_driver->read_factory_arg_data(&factory_arg);
+	ret_bool = flash_manager_driver->check_factory_arg_data_is_void(&factory_arg);
 
-	boot_manager_driver->boot2app();
-	// boot_manager_driver->do_boot();
+	if (likely(ret_bool != false)) {
+		// no factory arg data
+		flash_manager_driver->init_new_factory_arg_data(&factory_arg);
+		flash_manager_driver->write_factory_arg_data(&factory_arg);
+	}
 
-	// std::unique_ptr<FLASH_MANAGER> flash_manager_driver = FLASH_MANAGER::getInstance();
+	// wait for updata can message
+	boot_driver->register_ota_canfd_data_signal();
+	timer_timeout_flag = false;
+	timer_driver->timer_start(timer_driver->get_ota_signal_timer(), K_NO_WAIT, K_MSEC(100));
+	// if get ota signal, cancel timer
 
-	// FACTORY_ARG_T test_arg = {
-	// 	.magic_number = MAGIC_NUMBER,
-	// 	.is_boot_update_flag = 0xA,
-	// 	.is_app_update_flag = 0xB,
-	// 	.boot_status = BOOT_OK,
-	// 	.boot_build_timestamp = 0x12345678,
-	// 	.app_build_timestamp = 0x87654321,
-	// 	.boot_version = 0xC,
-	// 	.boot_version_major = 0xD,
-	// 	.boot_version_minor = 0xE,
-	// 	.app_version = 0xF,
-	// 	.app_version_major = 0xAB,
-	// 	.app_version_minor = 0xCD,
-	// 	.hw_version = 0xEF,
-	// };
+	while (!timer_timeout_flag) {
+		k_sleep(K_MSEC(200));
+	}
 
-	// flash_manager_driver->write_factory_arg_data(&test_arg);
+	// if get ota signal timeout, boot to app
+	if (boot_driver->get_ota_signal_timeout_flag() != false) {
+		boot_driver->boot2app();
+	}
 
-	// LOG_INF("Now try to erase app flash area...[0x08010000 - 0x0803F800]");
-	// flash_manager_driver->erase_app_flash_page(0);
-	// LOG_INF("Erase app flash area down!");
+	// enter ota mode, add a 10 sec timer to avoid dead loop
+	timer_timeout_flag = false;
+	timer_driver->timer_start(timer_driver->get_deadloop_timer(), K_NO_WAIT, K_MSEC(200));
 
 	while (1) {
 		k_sleep(K_SECONDS(1));

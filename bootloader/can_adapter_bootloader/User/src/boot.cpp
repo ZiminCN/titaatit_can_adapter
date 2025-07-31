@@ -18,9 +18,6 @@
 #include <zephyr/cache.h>
 #include <zephyr/drivers/timer/system_timer.h>
 #include <zephyr/kernel.h>
-// #include <zephyr/logging/log.h>
-
-// LOG_MODULE_REGISTER(boot, LOG_LEVEL_INF);
 
 std::unique_ptr<BOOT> BOOT::Instance = std::make_unique<BOOT>();
 
@@ -59,14 +56,8 @@ void BOOT::boot2app(void)
 
 	/*application base address = flash base address + bootloader size + bootloader arg
 	 * size*/
-	// vt = (struct arm_vector_table *)(CONFIG_FLASH_BASE_ADDRESS + CONFIG_FLASH_LOAD_SIZE +
-	// 				 CONFIG_CAN_ADAPTER_BOOT_ARG_PARTITION_LOAD_SIZE);
-	vt = (struct arm_vector_table *)(CONFIG_FLASH_BASE_ADDRESS + CONFIG_FLASH_LOAD_SIZE);
-
-	// vt = (struct arm_vector_table *)(0x08010800);
-
-	// LOG_INF("vt->msp:%p value:0x%08x", (void *)&vt->msp, vt->msp);
-	// LOG_INF("vt->reset:%p value:0x%08x", (void *)&vt->reset, vt->reset);
+	vt = (struct arm_vector_table *)(CONFIG_FLASH_BASE_ADDRESS + CONFIG_FLASH_LOAD_SIZE +
+					 CONFIG_CAN_ADAPTER_BOOT_ARG_PARTITION_LOAD_SIZE);
 
 	if ((vt->msp & 0x2FFE0000) == 0x20000000) {
 		if (IS_ENABLED(CONFIG_SYSTEM_TIMER_HAS_DISABLE_SUPPORT)) {
@@ -80,11 +71,107 @@ void BOOT::boot2app(void)
 		__ISB();
 
 		((void (*)(void))vt->reset)();
-	} else {
-		// LOG_INF("invalid vector table address:[%x]", vt->msp);
+	}
+}
+
+void BOOT::boot2boot(void)
+{
+	struct arm_vector_table *vt;
+
+	/*boot base address = flash base address
+	 * size*/
+	vt = (struct arm_vector_table *)(CONFIG_FLASH_BASE_ADDRESS);
+
+	if ((vt->msp & 0x2FFE0000) == 0x20000000) {
+		if (IS_ENABLED(CONFIG_SYSTEM_TIMER_HAS_DISABLE_SUPPORT)) {
+			sys_clock_disable();
+		}
+
+		cleanup_arm_nvic(); /* cleanup NVIC registers */
+		__set_MSP(vt->msp);
+
+		__set_CONTROL(0x00); /* application will configures core on its own */
+		__ISB();
+
+		((void (*)(void))vt->reset)();
 	}
 }
 
 // refer to "Docs/RM0440.pdf" 1.5(Page: 75/2140) about Product category definition
 
 //! refer to "Docs/RM0440.pdf" 3.7.8(Page: 138/2140) about  Flash option register
+
+void BOOT::set_ota_signal_timeout_flag(bool flag)
+{
+	this->ota_signal_timeout_flag = flag;
+}
+
+bool BOOT::get_ota_signal_timeout_flag(void)
+{
+	return this->ota_signal_timeout_flag;
+}
+
+void BOOT::set_deadloop_flag(bool flag)
+{
+	this->deadloop_flag = flag;
+}
+
+bool BOOT::get_deadloop_flag(void)
+{
+	return this->deadloop_flag;
+}
+
+void BOOT::init(void)
+{
+	this->ota_signal_timeout_flag = true;
+	this->deadloop_flag = false;
+	this->can_driver->init();
+}
+
+void BOOT::ota_process(const device *dev, can_frame *frame)
+{
+}
+
+void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *user_data)
+{
+	BOOT *boot_driver = static_cast<BOOT *>(user_data);
+
+	switch (frame->id) {
+	case CANFD_ID_AS_OTA_SIGNAL: {
+		boot_driver->set_ota_signal_timeout_flag(false);
+		break;
+	};
+	case CANFD_ID_AS_OTA_PACKAGE: {
+		boot_driver->ota_process(dev, frame);
+		break;
+	};
+	default: {
+		break;
+	}
+	}
+}
+
+void BOOT::adapter2adapter_ota_process(const device *dev, can_frame *frame, void *user_data)
+{
+}
+
+void BOOT::register_ota_canfd_data_signal()
+{
+	struct can_filter robot2adapter_filter = {
+		.id = 0x382,
+		.mask = 0x7FF,
+		.flags = 0,
+	};
+
+	struct can_filter adapter2adapter_filter = {
+		.id = 0x200,
+		.mask = 0x7FF,
+		.flags = 0,
+	};
+
+	this->can_driver->add_can_filter(this->can_driver->get_canfd_2_dev(), &robot2adapter_filter,
+					 this->robot2adapter_ota_process, this);
+	this->can_driver->add_can_filter(this->can_driver->get_canfd_3_dev(),
+					 &adapter2adapter_filter, this->adapter2adapter_ota_process,
+					 this);
+}

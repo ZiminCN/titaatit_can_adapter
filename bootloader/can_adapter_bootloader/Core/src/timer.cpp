@@ -15,10 +15,6 @@
 
 #include "timer.hpp"
 
-// #include <zephyr/logging/log.h>
-
-// LOG_MODULE_REGISTER(timer, LOG_LEVEL_INF);
-
 std::unique_ptr<TIMER> TIMER::Instance = std::make_unique<TIMER>();
 std::unique_ptr<TIMER_FREQ_T> TIMER::timer_freq_cfg = std::make_unique<TIMER_FREQ_T>();
 std::unique_ptr<TIMER_MANGEMENT_GPOUP_T> TIMER::timer_management_group =
@@ -37,6 +33,11 @@ void TIMER::timer_init(struct k_timer *timer, k_timer_expiry_t expiry_fn, k_time
 void TIMER::timer_start(struct k_timer *timer, k_timeout_t duration, k_timeout_t period)
 {
 	return k_timer_start(timer, duration, period);
+}
+
+void TIMER::timer_stop(struct k_timer *timer)
+{
+	return k_timer_stop(timer);
 }
 
 void TIMER::set_timer_freq_cfg_dt(float dt)
@@ -109,7 +110,12 @@ uint32_t TIMER::get_timer_freq_cfg_cycle_count()
 	return this->timer_freq_cfg->cycle_count;
 }
 
-struct k_timer *TIMER::get_can_adapter_heartbeat_timer()
+struct k_timer *TIMER::get_ota_signal_timer()
 {
-	return &(this->timer_management_group->can_adapter_heartbeat_timer);
+	return &(this->timer_management_group->ota_signal_timer);
+}
+
+struct k_timer *TIMER::get_deadloop_timer()
+{
+	return &(this->timer_management_group->deadloop_timer);
 }

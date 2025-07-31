@@ -9,17 +9,14 @@ find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE} $ENV{ZEPHYR_MODULES})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Core/inc)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/User/inc)
-# include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../modules/hal/stm32/stm32cube/stm32g4xx/drivers/include/)
-include_directories(${ZEPHYR_BASE}/../modules/hal/stm32/stm32cube/stm32g4xx/drivers/include/)
-
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/SoftwareVersion)
 
 file(GLOB USER_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/User/src/*.c*)
 file(GLOB CORE_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/Core/src/*.c*)
-# file(GLOB HAL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../../modules/hal/stm32/stm32cube/stm32g4xx/drivers/src/stm32g4xx_hal_flash_ramfunc.c ${CMAKE_CURRENT_SOURCE_DIR}/../../../modules/hal/stm32/stm32cube/stm32g4xx/drivers/src/stm32g4xx_hal_flash.c)
-file(GLOB HAL_SOURCES ${ZEPHYR_BASE}/../modules/hal/stm32/stm32cube/stm32g4xx/drivers/src/stm32g4xx_hal_flash_ramfunc.c ${CMAKE_CURRENT_SOURCE_DIR}/../../../modules/hal/stm32/stm32cube/stm32g4xx/drivers/src/stm32g4xx_hal_flash.c)
 
 message(STATUS "ZEPHYR_BASE = ${ZEPHYR_BASE}")
 
+include(${CMAKE_CURRENT_LIST_DIR}/SoftwareVersion/version.cmake)
 
 project(can_adapter)
 

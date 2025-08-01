@@ -17,6 +17,7 @@
 #define __BOOT_HPP__
 
 #include "can.hpp"
+#include "dev_info.hpp"
 #include <memory>
 
 /**
@@ -30,27 +31,69 @@
  * 2. Bootloader will wait for OTA Order as upgrade mode, Support upgrade
  * methods of one to one and one to two one to one: Robot -> Adapter. one to two:
  * Robot -> Adapter -> Adapter. Return ACK!
- *
- * Need to send the MCU Device ID and Software Version to the Robot.
+ * Please refer to the parameters @arg OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE and @arg
+ * OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO Need to send the MCU Device ID and Software Version as ACK to
+ * the Robot.
  *
  * 3. Bootloader will wait for OTA Order as firmware info, The app version
- * allows upward upgrades and forced upgrade. Return ACK!
+ * allows upward upgrades and forced upgrade. Please refer to the parameters @arg
+ * OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE and @arg OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO. Return ACK!
+ *
  *
  * 4. Bootloader will wait for OTA Order as firmware package, Only perform
  * verification for the entire firmware package. Return ACK for every package!
  */
 
+#define ACK_DEADC0DE 0xDEADC0DEU
+
 typedef enum {
-	OTA_ORDER_AS_DEFAULT = 0x00,
-	OTA_ORDER_AS_UPGRADE_MODE = 0x01,
-	OTA_ORDER_AS_FIRMWARE_INFO = 0x02,
-	OTA_ORDER_AS_PACKAGE = 0x03,
+	ACK_DEFAULT = 0x00U,
+	ACK_OK = 0x01U,
+	ACK_ERROR = 0x02U,
+} RETURN_ACK_INFO_E;
+
+typedef struct {
+	uint32_t ota_ack_info; // refer to RETURN_ACK_INFO_E
+} RETURN_ACK_OTA_SIGNAL_T;
+
+typedef struct {
+	uint8_t ota_order;    // refer to RETURN_ACK_INFO_E
+	uint8_t ota_ack_info; // refer to OTA_ORDER_E
+	uint32_t local_device_id;
+	uint32_t local_software_version;
+	uint32_t local_software_build_timestamp;
+	uint32_t remote_device_id;		  // if one2two
+	uint32_t remote_software_version;	  // if one2two
+	uint32_t remote_software_build_timestamp; // if one2two
+} RETURN_ACK_OTA_UPGRADE_T;
+
+typedef struct {
+	uint32_t total_package_cnt;
+	uint32_t current_package_index;
+	uint8_t ota_ack_info; // refer to RETURN_ACK_INFO_E
+} RETURN_ACK_OTA_PACKAGE_T;
+
+typedef struct {
+	RETURN_ACK_OTA_SIGNAL_T return_ack_ota_signal;
+	RETURN_ACK_OTA_UPGRADE_T return_ack_ota_upgrade;
+	RETURN_ACK_OTA_PACKAGE_T return_ack_ota_package;
+} RETURN_ACK_T;
+
+typedef enum {
+	OTA_ORDER_AS_DEFAULT = 0x00U,
+	OTA_ORDER_AS_UPGRADE_MODE = 0x01U,
+	OTA_ORDER_AS_FIRMWARE_INFO = 0x02U,
 } OTA_ORDER_E;
 
 typedef enum {
-	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_DEFAULT = 0X00,
-	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_UPWARD_UPGRADE = 0X01,
-	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE = 0X02,
+	OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE = 0x00U,
+	OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO = 0x01U,
+} OTA_ORDER_AS_UPGRADE_MODE_E;
+
+typedef enum {
+	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_DEFAULT = 0X00U,
+	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_UPWARD_UPGRADE = 0X01U,
+	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE = 0X02U,
 } OTA_ORDER_AS_FIRMWARE_INFO_ORDER_E;
 
 typedef struct {
@@ -67,18 +110,19 @@ typedef struct {
 
 typedef struct {
 	OTA_ORDER_E ota_order;
+	OTA_ORDER_AS_UPGRADE_MODE_E ota_order_as_upgrade_mode;
 	OTA_ORDER_AS_FIRMWARE_INFO_ORDER_E ota_order_as_firmware_info_order;
 	OTA_FIRMWARE_INFO_T ota_firmware_info;
 	OTA_PACKAGE_T ota_package;
 } OTA_UPGRADE_INFO_T;
 
 typedef enum {
-	BOOT_PROCESS_NO_UPDATE_SIGNAL = 0x00,
-	BOOT_PROCESS_WAIT_FOR_UPDATE_SIGNAL = 0x01,
-	BOOT_PROCESS_GET_FIRMWARE_INFO = 0x02,
-	BOOT_PROCESS_GET_FIRMWARE_PACKAGE = 0x03,
-	BOOT_PROCESS_VIRIFY_FIRMWARE = 0x04,
-	BOOT_PROCESS_BOOT_TO_APP = 0x05,
+	BOOT_PROCESS_NO_UPDATE_SIGNAL = 0x00U,
+	BOOT_PROCESS_WAIT_FOR_UPDATE_SIGNAL = 0x01U,
+	BOOT_PROCESS_GET_FIRMWARE_INFO = 0x02U,
+	BOOT_PROCESS_GET_FIRMWARE_PACKAGE = 0x03U,
+	BOOT_PROCESS_VIRIFY_FIRMWARE = 0x04U,
+	BOOT_PROCESS_BOOT_TO_APP = 0x05U,
 } BOOT_PROCESS_E;
 
 class BOOT
@@ -101,7 +145,11 @@ class BOOT
       private:
 	static std::unique_ptr<BOOT> Instance;
 	static std::unique_ptr<OTA_UPGRADE_INFO_T> ota_upgrade_info;
+	static std::unique_ptr<RETURN_ACK_T> return_ack;
+
 	std::shared_ptr<CAN> can_driver = CAN::getInstance();
+	std::shared_ptr<DEV_INFO> dev_info = DEV_INFO::getInstance();
+
 	inline static bool ota_signal_timeout_flag = true;
 	inline static int deadloop_cnt = 0;
 	static void robot2adapter_ota_process(const device *dev, can_frame *frame, void *user_data);
@@ -110,8 +158,9 @@ class BOOT
 	void cleanup_arm_nvic(void);
 	void return_adapter2robot_ota_ack(can_frame *frame);
 	void return_adapter2adapter_ota_ack(can_frame *frame);
-	void ota_upgrade_app_firmware(const device *dev, can_frame *frame);
-	void ota_process(const device *dev, can_frame *frame);
+	void ota_info_verification(const device *dev, can_frame *frame);
+	void ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame);
+	void ota_upgrade_app_firmware_one2two(const device *dev, can_frame *frame);
 };
 
 #endif // __BOOT_HPP__

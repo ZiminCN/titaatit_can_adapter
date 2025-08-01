@@ -20,7 +20,8 @@
 #include <zephyr/kernel.h>
 
 std::unique_ptr<BOOT> BOOT::Instance = std::make_unique<BOOT>();
-std::unique_ptr<OTA_UPGRADE_INFO_T> ota_upgrade_info = std::make_unique<OTA_UPGRADE_INFO_T>();
+std::unique_ptr<OTA_UPGRADE_INFO_T> BOOT::ota_upgrade_info = std::make_unique<OTA_UPGRADE_INFO_T>();
+std::unique_ptr<RETURN_ACK_T> BOOT::return_ack = std::make_unique<RETURN_ACK_T>();
 
 std::unique_ptr<BOOT> BOOT::getInstance()
 {
@@ -152,16 +153,44 @@ void BOOT::return_adapter2adapter_ota_ack(can_frame *frame)
 	this->can_driver->send_can_msg(can_driver->get_canfd_3_dev(), frame);
 }
 
-void BOOT::ota_process(const device *dev, can_frame *frame)
+void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 {
-	switch (frame->id) {
+	OTA_ORDER_E ota_order = static_cast<OTA_ORDER_E>(frame->data[0]);
+
+	switch (ota_order) {
+	case OTA_ORDER_AS_UPGRADE_MODE: {
+		this->ota_upgrade_info->ota_order = OTA_ORDER_AS_UPGRADE_MODE;
+		this->ota_upgrade_info->ota_order_as_upgrade_mode =
+			static_cast<OTA_ORDER_AS_UPGRADE_MODE_E>(frame->data[1]);
+
+		// if upgrade mode is one2one, return ack immediately
+		if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
+		    OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE) {
+			// return myself device id and software version
+			// TODO:
+			// A2R_ota_ack_frame.data[0] = 0x00U;
+			this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+		} else if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
+			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
+			// send OTA signal to another adapter
+		}
+		break;
+	}
+	case OTA_ORDER_AS_FIRMWARE_INFO: {
+
+		break;
+	}
 	default: {
 		break;
 	}
 	}
 }
 
-void BOOT::ota_upgrade_app_firmware(const device *dev, can_frame *frame)
+void BOOT::ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame)
+{
+}
+
+void BOOT::ota_upgrade_app_firmware_one2two(const device *dev, can_frame *frame)
 {
 }
 
@@ -171,17 +200,41 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 
 	switch (frame->id) {
 	case CANFD_ID_AS_R2A_OTA_SIGNAL: {
+		// make sure canfd data is 0xdeadc0de
+		uint32_t ota_signal_data = (frame->data[0] << 24) | (frame->data[1] << 16) |
+					   (frame->data[2] << 8) | (frame->data[3]);
+		if (ota_signal_data != static_cast<uint32_t>(ACK_DEADC0DE)) {
+			break;
+		}
+
 		boot_driver->set_ota_signal_timeout_flag(false);
-		memcpy(A2R_ota_ack_frame.data, frame->data, A2R_ota_ack_frame.dlc);
+		// first ack needs return 0xdeadc0de
+		boot_driver->return_ack->return_ack_ota_signal.ota_ack_info =
+			static_cast<uint32_t>(ACK_DEADC0DE);
+		memcpy(A2R_ota_ack_frame.data, &(boot_driver->return_ack->return_ack_ota_signal),
+		       sizeof(boot_driver->return_ack->return_ack_ota_signal));
 		boot_driver->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
 		break;
 	};
 	case CANFD_ID_AS_R2A_OTA_UPGRADE: {
-		boot_driver->ota_process(dev, frame);
+		boot_driver->ota_info_verification(dev, frame);
 		break;
 	};
 	case CANFD_ID_AS_R2A_OTA_PACKAGE: {
-		boot_driver->ota_upgrade_app_firmware(dev, frame);
+		// make sure ota process is complete
+		if (boot_driver->ota_upgrade_info->ota_order_as_firmware_info_order ==
+		    OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_DEFAULT) {
+			A2R_ota_ack_frame.data[0] = ACK_ERROR;
+			boot_driver->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+			break;
+		}
+
+		if (boot_driver->ota_upgrade_info->ota_order_as_upgrade_mode ==
+		    OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE) {
+			boot_driver->ota_upgrade_app_firmware_one2one(dev, frame);
+		} else {
+			boot_driver->ota_upgrade_app_firmware_one2two(dev, frame);
+		}
 		break;
 	};
 	default: {
@@ -196,15 +249,17 @@ void BOOT::adapter2adapter_ota_process(const device *dev, can_frame *frame, void
 
 void BOOT::register_ota_canfd_data_signal()
 {
+	// get canfd id: 0x380U ~ 0x385U
 	struct can_filter robot2adapter_filter = {
-		.id = 0x382,
-		.mask = 0x7FF,
+		.id = 0x380,
+		.mask = 0x7FA,
 		.flags = 0,
 	};
 
+	// get canfd id: 0x200U ~ 0x205U
 	struct can_filter adapter2adapter_filter = {
 		.id = 0x200,
-		.mask = 0x7FF,
+		.mask = 0x7FA,
 		.flags = 0,
 	};
 

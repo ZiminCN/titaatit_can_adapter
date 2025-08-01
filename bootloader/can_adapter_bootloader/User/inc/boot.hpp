@@ -89,10 +89,20 @@ typedef struct {
 	OTA_PACKAGE_T ota_package;
 } OTA_UPGRADE_INFO_T;
 
+
+/**
+ * receive canfd: ID: 0x382, 
+ * 		  Data: 0xDEADC0DE
+ */
 typedef struct {
 	uint32_t ota_ack_info; // refer to RETURN_ACK_INFO_E
 } RETURN_ACK_OTA_SIGNAL_T;
 
+/**
+ * receive canfd: ID: 0x383, 
+ * 		  Data: uint8_t ota_order
+ * 			uint8_t ota_order_as_upgrade_mode
+ */
 typedef struct {
 	OTA_ORDER_E ota_order;		// refer to OTA_ORDER_E
 	RETURN_ACK_INFO_E ota_ack_info; // refer to RETURN_ACK_INFO_E
@@ -100,6 +110,11 @@ typedef struct {
 	uint32_t remote_device_id[3]; // if one2two
 } RETURN_ACK_OTA_UPGRADE_T;
 
+/**
+ * receive canfd: ID: 0x383, 
+ * 		  Data: uint8_t ota_order
+ * 			uint8_t ota_order_as_firmware_info_order
+ */
 typedef struct {
 	OTA_ORDER_E ota_order;		// refer to OTA_ORDER_E
 	RETURN_ACK_INFO_E ota_ack_info; // refer to RETURN_ACK_INFO_E
@@ -109,6 +124,12 @@ typedef struct {
 	uint32_t remote_software_build_timestamp; // if one2two
 } RETURN_ACK_OTA_FIRMWARE_INFO_T;
 
+/**
+ * receive canfd: ID: 0x384, 
+ * 		  Data: uint32_t total_package_cnt
+ * 			uint32_t current_package_cnt
+ * 			uint32_t firmware_package[6]
+ */
 typedef struct {
 	uint32_t total_package_cnt;
 	uint32_t current_package_index;

@@ -184,11 +184,24 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 		} else if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
 			// send OTA signal to another adapter
+			//TODO
 		}
 		break;
 	}
 	case OTA_ORDER_AS_FIRMWARE_INFO: {
+		this->ota_upgrade_info->ota_order = OTA_ORDER_AS_FIRMWARE_INFO;
+		this->ota_upgrade_info->ota_order_as_firmware_info_order = 
+			static_cast<OTA_ORDER_AS_FIRMWARE_INFO_ORDER_E>(frame->data[1]);
 
+		// if upgrade mode is one2one, return ack immediately
+		if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
+		    OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE) {
+
+		} else if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
+			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
+			// send OTA signal to another adapter
+			//TODO
+		}
 		break;
 	}
 	default: {

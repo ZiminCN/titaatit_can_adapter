@@ -436,7 +436,7 @@ void CANFD_FORWARD_PROTOCOL::data2robot_heartbeat_data_callback(const device *de
 	// can frame heartbeat data[2] is the is_master_dev, data[3] is the
 	// is_slave_dev another adapter is master dev
 
-	if(stable_heartbeat_cnt >= 20){
+	if (stable_heartbeat_cnt >= 20) {
 		stable_connection_flag = true;
 		if ((frame->data[2] == 0x01U) && (frame->data[3] == 0x00U)) {
 			// this adapter is slave dev
@@ -509,11 +509,11 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 	if (adapter_heart_beat->is_received_heartbeat == true) {
 		adapter_heart_beat->timeout_cnt += 1;
 
-		if(stable_connection_flag == false){
+		if (stable_connection_flag == false) {
 			lost_heartbeat_cnt += 1;
 
 			// it means lost some heartbeat at the very beginning of the docking process
-			if(((lost_heartbeat_cnt - stable_heartbeat_cnt) >= 5)){
+			if (((lost_heartbeat_cnt - stable_heartbeat_cnt) >= 5)) {
 				lost_heartbeat_cnt = 0;
 				stable_heartbeat_cnt = 0;
 			}

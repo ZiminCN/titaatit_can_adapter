@@ -52,33 +52,6 @@ typedef enum {
 	ACK_ERROR = 0x02U,
 } RETURN_ACK_INFO_E;
 
-typedef struct {
-	uint32_t ota_ack_info; // refer to RETURN_ACK_INFO_E
-} RETURN_ACK_OTA_SIGNAL_T;
-
-typedef struct {
-	uint8_t ota_order;    // refer to RETURN_ACK_INFO_E
-	uint8_t ota_ack_info; // refer to OTA_ORDER_E
-	uint32_t local_device_id;
-	uint32_t local_software_version;
-	uint32_t local_software_build_timestamp;
-	uint32_t remote_device_id;		  // if one2two
-	uint32_t remote_software_version;	  // if one2two
-	uint32_t remote_software_build_timestamp; // if one2two
-} RETURN_ACK_OTA_UPGRADE_T;
-
-typedef struct {
-	uint32_t total_package_cnt;
-	uint32_t current_package_index;
-	uint8_t ota_ack_info; // refer to RETURN_ACK_INFO_E
-} RETURN_ACK_OTA_PACKAGE_T;
-
-typedef struct {
-	RETURN_ACK_OTA_SIGNAL_T return_ack_ota_signal;
-	RETURN_ACK_OTA_UPGRADE_T return_ack_ota_upgrade;
-	RETURN_ACK_OTA_PACKAGE_T return_ack_ota_package;
-} RETURN_ACK_T;
-
 typedef enum {
 	OTA_ORDER_AS_DEFAULT = 0x00U,
 	OTA_ORDER_AS_UPGRADE_MODE = 0x01U,
@@ -116,6 +89,39 @@ typedef struct {
 	OTA_PACKAGE_T ota_package;
 } OTA_UPGRADE_INFO_T;
 
+typedef struct {
+	uint32_t ota_ack_info; // refer to RETURN_ACK_INFO_E
+} RETURN_ACK_OTA_SIGNAL_T;
+
+typedef struct {
+	OTA_ORDER_E ota_order;		// refer to OTA_ORDER_E
+	RETURN_ACK_INFO_E ota_ack_info; // refer to RETURN_ACK_INFO_E
+	uint32_t local_device_id[3];
+	uint32_t remote_device_id[3]; // if one2two
+} RETURN_ACK_OTA_UPGRADE_T;
+
+typedef struct {
+	OTA_ORDER_E ota_order;		// refer to OTA_ORDER_E
+	RETURN_ACK_INFO_E ota_ack_info; // refer to RETURN_ACK_INFO_E
+	uint32_t local_software_version;
+	uint32_t local_software_build_timestamp;
+	uint32_t remote_software_version;	  // if one2two
+	uint32_t remote_software_build_timestamp; // if one2two
+} RETURN_ACK_OTA_FIRMWARE_INFO_T;
+
+typedef struct {
+	uint32_t total_package_cnt;
+	uint32_t current_package_index;
+	RETURN_ACK_INFO_E ota_ack_info; // refer to RETURN_ACK_INFO_E
+} RETURN_ACK_OTA_PACKAGE_T;
+
+typedef struct {
+	RETURN_ACK_OTA_SIGNAL_T return_ack_ota_signal;
+	RETURN_ACK_OTA_UPGRADE_T return_ack_ota_upgrade;
+	RETURN_ACK_OTA_FIRMWARE_INFO_T return_ack_ota_firmware_info;
+	RETURN_ACK_OTA_PACKAGE_T return_ack_ota_package;
+} RETURN_ACK_T;
+
 typedef enum {
 	BOOT_PROCESS_NO_UPDATE_SIGNAL = 0x00U,
 	BOOT_PROCESS_WAIT_FOR_UPDATE_SIGNAL = 0x01U,
@@ -148,7 +154,7 @@ class BOOT
 	static std::unique_ptr<RETURN_ACK_T> return_ack;
 
 	std::shared_ptr<CAN> can_driver = CAN::getInstance();
-	std::shared_ptr<DEV_INFO> dev_info = DEV_INFO::getInstance();
+	std::shared_ptr<DEV_INFO> dev_info_driver = DEV_INFO::getInstance();
 
 	inline static bool ota_signal_timeout_flag = true;
 	inline static int deadloop_cnt = 0;

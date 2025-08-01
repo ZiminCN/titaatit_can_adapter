@@ -130,6 +130,7 @@ void BOOT::init(void)
 	this->ota_signal_timeout_flag = true;
 	this->deadloop_cnt = 0;
 	this->can_driver->init();
+	this->dev_info_driver->init();
 }
 
 static struct can_frame A2R_ota_ack_frame = {
@@ -167,8 +168,18 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 		if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 		    OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE) {
 			// return myself device id and software version
-			// TODO:
-			// A2R_ota_ack_frame.data[0] = 0x00U;
+			HARDWARE_DEVICE_INFO_T dev_info;
+			dev_info = this->dev_info_driver->get_hardware_device_uuid();
+
+			this->return_ack->return_ack_ota_upgrade.ota_order =
+				OTA_ORDER_AS_UPGRADE_MODE;
+			memcpy(this->return_ack->return_ack_ota_upgrade.local_device_id,
+			       &(dev_info.uuid),
+			       sizeof(this->return_ack->return_ack_ota_upgrade.local_device_id));
+			this->return_ack->return_ack_ota_upgrade.ota_ack_info = ACK_OK;
+			memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_upgrade),
+			       sizeof(RETURN_ACK_OTA_UPGRADE_T));
+
 			this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
 		} else if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
@@ -211,8 +222,8 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 		// first ack needs return 0xdeadc0de
 		boot_driver->return_ack->return_ack_ota_signal.ota_ack_info =
 			static_cast<uint32_t>(ACK_DEADC0DE);
-		memcpy(A2R_ota_ack_frame.data, &(boot_driver->return_ack->return_ack_ota_signal),
-		       sizeof(boot_driver->return_ack->return_ack_ota_signal));
+		memcpy(A2R_ota_ack_frame.data, &(boot_driver->return_ack),
+		       sizeof(RETURN_ACK_OTA_SIGNAL_T));
 		boot_driver->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
 		break;
 	};

@@ -26,9 +26,6 @@
 #include "flash.hpp"
 #include "timer.hpp"
 
-static FACTORY_ARG_T factory_arg;
-
-std::unique_ptr<FLASH_MANAGER> flash_manager_driver = FLASH_MANAGER::getInstance();
 std::unique_ptr<BOOT> boot_driver = BOOT::getInstance();
 std::unique_ptr<TIMER> timer_driver = TIMER::getInstance();
 
@@ -71,16 +68,12 @@ void avoid_deadloop_stop_callback(struct k_timer *timer)
 	// reboot
 	boot_driver->set_deadloop_cnt(0);
 	timer_timeout_flag = true;
-	flash_manager_driver->read_factory_arg_data(&factory_arg);
-	factory_arg.arg_status = FACTORY_ARG_STATUS_ERROR;
-	flash_manager_driver->write_factory_arg_data(&factory_arg);
+	boot_driver->factory_arg_error();
 	boot_driver->boot2boot();
 }
 
 int main(void)
 {
-	bool ret_bool;
-
 	timer_driver->timer_init(timer_driver->get_ota_signal_timer(),
 				 wait_for_ota_signal_expiry_callback,
 				 wait_for_ota_signal_stop_callback);
@@ -89,14 +82,7 @@ int main(void)
 	boot_driver->init();
 
 	// self-check
-	flash_manager_driver->read_factory_arg_data(&factory_arg);
-	ret_bool = flash_manager_driver->check_factory_arg_data_is_void(&factory_arg);
-
-	if (likely(ret_bool != false)) {
-		// no factory arg data
-		flash_manager_driver->init_new_factory_arg_data(&factory_arg);
-		flash_manager_driver->write_factory_arg_data(&factory_arg);
-	}
+	boot_driver->factory_arg_self_check();
 
 	// wait for updata can message
 	boot_driver->register_ota_canfd_data_signal();

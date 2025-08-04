@@ -18,6 +18,7 @@
 
 #include "can.hpp"
 #include "dev_info.hpp"
+#include "flash.hpp"
 #include <memory>
 
 /**
@@ -71,8 +72,9 @@ typedef enum {
 
 typedef struct {
 	uint32_t firmware_size;
-	uint32_t firmware_crc;
 	uint32_t firmware_version;
+	uint32_t firmware_build_timestamp;
+	uint32_t firmware_crc;
 } OTA_FIRMWARE_INFO_T;
 
 typedef struct {
@@ -89,9 +91,8 @@ typedef struct {
 	OTA_PACKAGE_T ota_package;
 } OTA_UPGRADE_INFO_T;
 
-
 /**
- * receive canfd: ID: 0x382, 
+ * receive canfd: ID: 0x382,
  * 		  Data: 0xDEADC0DE
  */
 typedef struct {
@@ -99,7 +100,7 @@ typedef struct {
 } RETURN_ACK_OTA_SIGNAL_T;
 
 /**
- * receive canfd: ID: 0x383, 
+ * receive canfd: ID: 0x383,
  * 		  Data: uint8_t ota_order
  * 			uint8_t ota_order_as_upgrade_mode
  */
@@ -111,9 +112,14 @@ typedef struct {
 } RETURN_ACK_OTA_UPGRADE_T;
 
 /**
- * receive canfd: ID: 0x383, 
+ * refer to OTA_FIRMWARE_INFO_T
+ * receive canfd: ID: 0x383,
  * 		  Data: uint8_t ota_order
  * 			uint8_t ota_order_as_firmware_info_order
+ * 			uint32_t firmware_size (KBytes)
+ * 			uint32_t firmware_version
+ * 			uint32_t firmware_build_timestamp
+ * 			uint32_t firmware_crc
  */
 typedef struct {
 	OTA_ORDER_E ota_order;		// refer to OTA_ORDER_E
@@ -125,7 +131,8 @@ typedef struct {
 } RETURN_ACK_OTA_FIRMWARE_INFO_T;
 
 /**
- * receive canfd: ID: 0x384, 
+ * refer to OTA_PACKAGE_T
+ * receive canfd: ID: 0x384,
  * 		  Data: uint32_t total_package_cnt
  * 			uint32_t current_package_cnt
  * 			uint32_t firmware_package[6]
@@ -162,6 +169,8 @@ class BOOT
 	static std::unique_ptr<BOOT> getInstance();
 	void boot2app(void);
 	void boot2boot(void);
+	void factory_arg_self_check(void);
+	void factory_arg_error(void);
 	void init(void);
 	void register_ota_canfd_data_signal();
 	void set_ota_signal_timeout_flag(bool flag);
@@ -176,6 +185,7 @@ class BOOT
 
 	std::shared_ptr<CAN> can_driver = CAN::getInstance();
 	std::shared_ptr<DEV_INFO> dev_info_driver = DEV_INFO::getInstance();
+	std::unique_ptr<FLASH_MANAGER> flash_manager_driver = FLASH_MANAGER::getInstance();
 
 	inline static bool ota_signal_timeout_flag = true;
 	inline static int deadloop_cnt = 0;

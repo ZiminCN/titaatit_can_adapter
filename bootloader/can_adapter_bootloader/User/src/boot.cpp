@@ -125,6 +125,29 @@ int BOOT::get_deadloop_cnt(void)
 	return this->deadloop_cnt;
 }
 
+void BOOT::factory_arg_self_check(void)
+{
+	bool ret_bool;
+
+	this->flash_manager_driver->read_factory_arg_data();
+	ret_bool = this->flash_manager_driver->check_factory_arg_data_is_void();
+
+	if (likely(ret_bool != false)) {
+		// no factory arg data
+		this->flash_manager_driver->init_new_factory_arg_data();
+		this->flash_manager_driver->write_factory_arg_data();
+	}
+}
+
+void BOOT::factory_arg_error(void)
+{
+	this->flash_manager_driver->read_factory_arg_data();
+	FACTORY_ARG_T temp_factory_arg = this->flash_manager_driver->get_factory_arg();
+	temp_factory_arg.arg_status = FACTORY_ARG_STATUS_ERROR;
+	this->flash_manager_driver->set_factory_arg(temp_factory_arg);
+	this->flash_manager_driver->write_factory_arg_data();
+}
+
 void BOOT::init(void)
 {
 	this->ota_signal_timeout_flag = true;
@@ -184,23 +207,45 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 		} else if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
 			// send OTA signal to another adapter
-			//TODO
+			// TODO
 		}
 		break;
 	}
 	case OTA_ORDER_AS_FIRMWARE_INFO: {
 		this->ota_upgrade_info->ota_order = OTA_ORDER_AS_FIRMWARE_INFO;
-		this->ota_upgrade_info->ota_order_as_firmware_info_order = 
+		this->ota_upgrade_info->ota_order_as_firmware_info_order =
 			static_cast<OTA_ORDER_AS_FIRMWARE_INFO_ORDER_E>(frame->data[1]);
+		this->ota_upgrade_info->ota_firmware_info.firmware_size =
+			static_cast<uint32_t>((frame->data[2] << 24) | (frame->data[3] << 16) |
+					      (frame->data[4] << 8) | (frame->data[5]));
+		this->ota_upgrade_info->ota_firmware_info.firmware_version =
+			static_cast<uint32_t>((frame->data[6] << 24) | (frame->data[7] << 16) |
+					      (frame->data[8] << 8) | (frame->data[9]));
+		this->ota_upgrade_info->ota_firmware_info.firmware_build_timestamp =
+			static_cast<uint32_t>((frame->data[10] << 24) | (frame->data[11] << 16) |
+					      (frame->data[12] << 8) | (frame->data[13]));
+		this->ota_upgrade_info->ota_firmware_info.firmware_crc =
+			static_cast<uint32_t>((frame->data[14] << 24) | (frame->data[15] << 16) |
+					      (frame->data[16] << 8) | (frame->data[17]));
 
 		// if upgrade mode is one2one, return ack immediately
 		if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 		    OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE) {
+			if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
+			    OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_UPWARD_UPGRADE) {
 
+			} else if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
+				   OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE) {
+			}
 		} else if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
 			// send OTA signal to another adapter
-			//TODO
+			if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
+			    OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_UPWARD_UPGRADE) {
+
+			} else if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
+				   OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE) {
+			}
 		}
 		break;
 	}

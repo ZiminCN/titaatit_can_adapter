@@ -19,6 +19,7 @@
 
 #include "flash.hpp"
 
+FACTORY_ARG_T FLASH_MANAGER::factory_arg;
 std::unique_ptr<FLASH_MANAGER> FLASH_MANAGER::Instance = std::make_unique<FLASH_MANAGER>();
 
 std::unique_ptr<FLASH_MANAGER> FLASH_MANAGER::getInstance()
@@ -64,47 +65,47 @@ int FLASH_MANAGER::get_factory_arg_free_cnt()
 	return free_cnt;
 }
 
-bool FLASH_MANAGER::check_factory_arg_data_is_void(FACTORY_ARG_T *factory_arg_data)
+bool FLASH_MANAGER::check_factory_arg_data_is_void()
 {
-	if (factory_arg_data->magic_number == MAGIC_NUMBER) {
+	if (this->factory_arg.magic_number == MAGIC_NUMBER) {
 		return false;
 	}
 
 	return true;
 }
 
-void FLASH_MANAGER::init_new_factory_arg_data(FACTORY_ARG_T *factory_arg_data)
+void FLASH_MANAGER::init_new_factory_arg_data()
 {
 	//! need to check if just a bl
 	uint32_t boot_version = static_cast<uint32_t>(APP_VERSION);
 	uint32_t boot_timestamp = static_cast<uint32_t>(APP_BUILD_TIMESTAMP);
 
-	factory_arg_data->magic_number = MAGIC_NUMBER;
-	factory_arg_data->is_boot_update_flag = 0x00U;
-	factory_arg_data->is_app_update_flag = 0x00U;
-	factory_arg_data->boot_checkpoint_flag = 0x00U;
-	factory_arg_data->app_checkpoint_flag = 0x00U;
-	factory_arg_data->arg_status = FACTORY_ARG_NOT_READY;
+	this->factory_arg.magic_number = MAGIC_NUMBER;
+	this->factory_arg.is_boot_update_flag = 0x00U;
+	this->factory_arg.is_app_update_flag = 0x00U;
+	this->factory_arg.boot_checkpoint_flag = 0x00U;
+	this->factory_arg.app_checkpoint_flag = 0x00U;
+	this->factory_arg.arg_status = FACTORY_ARG_NOT_READY;
 
 	if (boot_version > UINT32_MAX) {
 		// error
 		boot_version = 0xFFFFFFFF;
-		factory_arg_data->arg_status = FACTORY_ARG_STATUS_ERROR;
+		this->factory_arg.arg_status = FACTORY_ARG_STATUS_ERROR;
 	}
 
 	if (boot_timestamp > UINT32_MAX) {
 		// error
 		boot_timestamp = 0xFFFFFFFF;
-		factory_arg_data->arg_status = FACTORY_ARG_STATUS_ERROR;
+		this->factory_arg.arg_status = FACTORY_ARG_STATUS_ERROR;
 	}
 
-	factory_arg_data->boot_build_timestamp = boot_timestamp;
-	factory_arg_data->boot_version = boot_version;
+	this->factory_arg.boot_build_timestamp = boot_timestamp;
+	this->factory_arg.boot_version = boot_version;
 
-	factory_arg_data->reserved_data_1 = 0x0000U; // reserved 1
+	this->factory_arg.reserved_data_1 = 0x0000U; // reserved 1
 }
 
-void FLASH_MANAGER::read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data)
+void FLASH_MANAGER::read_factory_arg_data()
 {
 	const struct flash_area *temp_fa;
 	struct flash_sector boot_arg_sector;
@@ -118,12 +119,12 @@ void FLASH_MANAGER::read_factory_arg_data(FACTORY_ARG_T *ouput_factory_arg_data)
 
 	flash_area_get_sectors(FACTORY_AREA, &sec_cnt, &boot_arg_sector);
 
-	flash_area_read(temp_fa, 0, ouput_factory_arg_data, sizeof(FACTORY_ARG_T));
+	flash_area_read(temp_fa, 0, &(this->factory_arg), sizeof(FACTORY_ARG_T));
 
 	flash_area_close(temp_fa);
 }
 
-bool FLASH_MANAGER::write_factory_arg_data(FACTORY_ARG_T *factory_arg_data)
+bool FLASH_MANAGER::write_factory_arg_data()
 {
 	const struct flash_area *temp_fa;
 	struct flash_sector boot_arg_sector;
@@ -145,7 +146,7 @@ bool FLASH_MANAGER::write_factory_arg_data(FACTORY_ARG_T *factory_arg_data)
 		retry--;
 	} while ((ret != 0) && (retry >= 0));
 
-	flash_area_write(temp_fa, 0, factory_arg_data, sizeof(FACTORY_ARG_T));
+	flash_area_write(temp_fa, 0, &(this->factory_arg), sizeof(FACTORY_ARG_T));
 
 	flash_area_close(temp_fa);
 
@@ -205,4 +206,14 @@ bool FLASH_MANAGER::erase_all_app_flash()
 	flash_area_close(temp_fa);
 
 	return true;
+}
+
+FACTORY_ARG_T FLASH_MANAGER::get_factory_arg()
+{
+	return this->factory_arg;
+}
+
+void FLASH_MANAGER::set_factory_arg(FACTORY_ARG_T arg)
+{
+	this->factory_arg = arg;
 }

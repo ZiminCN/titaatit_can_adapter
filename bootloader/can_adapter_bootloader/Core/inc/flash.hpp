@@ -22,11 +22,16 @@
 
 #include <memory>
 
-#define MAGIC_NUMBER 0xDEADC0DE
+#define MAGIC_NUMBER	      0xDEADC0DE
+#define WRITE_FLASH_PAGE_SIZE 2048
 
 #define BOOT_AREA    FIXED_PARTITION_ID(boot_partition)
 #define APP_AREA     FIXED_PARTITION_ID(slot0_partition)
 #define FACTORY_AREA FIXED_PARTITION_ID(factory_partition)
+
+#define BOOT_AREA_SIZE	  FIXED_PARTITION_SIZE(boot_partition)
+#define APP_AREA_SIZE	  FIXED_PARTITION_SIZE(slot0_partition)
+#define FACTORY_AREA_SIZE FIXED_PARTITION_SIZE(factory_partition)
 
 typedef enum {
 	FACTORY_ARG_STATUS_OK,
@@ -64,6 +69,7 @@ class FLASH_MANAGER
 	static std::unique_ptr<FLASH_MANAGER> getInstance();
 	bool init();
 	bool erase_app_flash_page(uint8_t page_num);
+	bool write_app_flash_page(uint8_t *data, uint16_t data_len, uint8_t page_num);
 	bool erase_all_app_flash();
 	void init_new_factory_arg_data();
 	bool check_factory_arg_data_is_void();

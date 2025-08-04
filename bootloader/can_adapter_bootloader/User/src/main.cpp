@@ -23,8 +23,12 @@
 #include <zephyr/settings/settings.h>
 
 #include "boot.hpp"
-#include "flash.hpp"
 #include "timer.hpp"
+
+#ifdef CONFIG_LOG
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(bootloader_main, LOG_LEVEL_INF);
+#endif
 
 std::unique_ptr<BOOT> boot_driver = BOOT::getInstance();
 std::unique_ptr<TIMER> timer_driver = TIMER::getInstance();
@@ -74,6 +78,10 @@ void avoid_deadloop_stop_callback(struct k_timer *timer)
 
 int main(void)
 {
+#ifdef CONFIG_LOG
+	LOG_INF("APP Hello World! I am %s", CONFIG_BOARD);
+	LOG_INF("APP size is [%x]", APP_AREA_SIZE);
+#endif
 	timer_driver->timer_init(timer_driver->get_ota_signal_timer(),
 				 wait_for_ota_signal_expiry_callback,
 				 wait_for_ota_signal_stop_callback);
@@ -88,8 +96,8 @@ int main(void)
 	boot_driver->register_ota_canfd_data_signal();
 	timer_timeout_flag = false;
 	timer_driver->timer_start(timer_driver->get_ota_signal_timer(), K_NO_WAIT, K_MSEC(100));
-	// if get ota signal, cancel timer
 
+	// if get ota signal, cancel timer
 	while (!timer_timeout_flag) {
 		k_sleep(K_MSEC(200));
 	}

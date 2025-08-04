@@ -18,9 +18,12 @@
 #include <stdlib.h>
 
 #include <zephyr/kernel.h>
-#include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(ring_buf, LOG_LEVEL_INF);
+#ifdef CONFIG_LOG
+#include <zephyr/logging/log.h>
+LOG_MODULE_REGISTER(bootloader_ringbuf, LOG_LEVEL_INF);
+#endif
+
 
 bool RING_BUF::ring_buf_init(bool overwrite_flag, bool multi_thread_flag, uint16_t buf_size)
 {
@@ -34,13 +37,11 @@ bool RING_BUF::ring_buf_init(bool overwrite_flag, bool multi_thread_flag, uint16
 	this->ring_buf.param.free_data_count = buf_size;
 	void *new_ptr = realloc(this->ring_buf.core.buffer_ptr, this->ring_buf.core.buffer_size);
 	if (new_ptr == nullptr) {
-		LOG_ERR("ring_buf.core.buffer_ptr is null");
 		return false;
 	}
 	this->ring_buf.core.buffer_ptr = static_cast<uint8_t *>(new_ptr);
 	memset(this->ring_buf.core.buffer_ptr, 0x00, this->ring_buf.core.buffer_size);
 
-	this->output_ring_buf_data();
 	return true;
 }
 
@@ -189,6 +190,7 @@ int RING_BUF::read_data(uint8_t *data, uint16_t data_len)
 	return data_len;
 }
 
+#ifdef CONFIG_LOG
 void RING_BUF::output_ring_buf_data()
 {
 
@@ -205,3 +207,4 @@ void RING_BUF::debug_LOG()
 	LOG_INF("write data count is [%d]", this->ring_buf.param.write_data_count);
 	LOG_INF("free data count is [%d]", this->ring_buf.param.free_data_count);
 }
+#endif

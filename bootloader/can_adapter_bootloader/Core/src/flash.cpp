@@ -181,6 +181,43 @@ bool FLASH_MANAGER::erase_app_flash_page(uint8_t page_num)
 	return true;
 }
 
+bool FLASH_MANAGER::write_app_flash_page(uint8_t *data, uint16_t data_len, uint8_t page_num)
+{
+	const struct flash_area *temp_fa;
+	struct flash_sector app_sector;
+	uint32_t sec_cnt = 1;
+	int ret = 0;
+	int retry = 3;
+
+	flash_area_open(APP_AREA, &temp_fa);
+
+	if (!flash_area_device_is_ready(temp_fa)) {
+		flash_area_close(temp_fa);
+		return false;
+	}
+
+	if (data_len != app_sector.fs_size) {
+		flash_area_close(temp_fa);
+		return false;
+	}
+
+	if (page_num <= 0) {
+		flash_area_close(temp_fa);
+		return false;
+	}
+
+	flash_area_get_sectors(APP_AREA, &sec_cnt, &app_sector);
+
+	do {
+		ret = flash_area_write(temp_fa, (page_num * data_len), data, data_len);
+		retry--;
+	} while ((ret != 0) && (retry >= 0));
+
+	flash_area_close(temp_fa);
+
+	return true;
+}
+
 bool FLASH_MANAGER::erase_all_app_flash()
 {
 	const struct flash_area *temp_fa;

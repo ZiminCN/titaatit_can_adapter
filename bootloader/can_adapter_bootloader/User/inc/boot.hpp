@@ -19,6 +19,7 @@
 #include "can.hpp"
 #include "dev_info.hpp"
 #include "flash.hpp"
+#include "ring_buf.hpp"
 #include <memory>
 
 /**
@@ -79,7 +80,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t total_package_cnt;
-	uint32_t current_package_index;
+	uint32_t current_package_index; // first package is 1, start from 1
 	uint32_t firmware_package[6];
 } OTA_PACKAGE_T;
 
@@ -116,10 +117,11 @@ typedef struct {
  * receive canfd: ID: 0x383,
  * 		  Data: uint8_t ota_order
  * 			uint8_t ota_order_as_firmware_info_order
- * 			uint32_t firmware_size (KBytes)
+ * 			uint32_t firmware_size (Bytes)
  * 			uint32_t firmware_version
  * 			uint32_t firmware_build_timestamp
  * 			uint32_t firmware_crc
+ * 	                uint32_t firmawre_all_package_cnt;
  */
 typedef struct {
 	OTA_ORDER_E ota_order;		// refer to OTA_ORDER_E
@@ -180,6 +182,7 @@ class BOOT
 
       private:
 	static std::unique_ptr<BOOT> Instance;
+	static std::unique_ptr<RING_BUF> ring_buf_driver;
 	static std::unique_ptr<OTA_UPGRADE_INFO_T> ota_upgrade_info;
 	static std::unique_ptr<RETURN_ACK_T> return_ack;
 
@@ -189,6 +192,7 @@ class BOOT
 
 	inline static bool ota_signal_timeout_flag = true;
 	inline static int deadloop_cnt = 0;
+	inline static int firmware_flash_package_cnt = 1;
 	static void robot2adapter_ota_process(const device *dev, can_frame *frame, void *user_data);
 	static void adapter2adapter_ota_process(const device *dev, can_frame *frame,
 						void *user_data);

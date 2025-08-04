@@ -36,7 +36,6 @@ bool RING_BUF::ring_buf_init(bool overwrite_flag, bool multi_thread_flag, uint16
 	this->ring_buf.core.buffer_ptr = static_cast<uint8_t *>(new_ptr);
 	memset(this->ring_buf.core.buffer_ptr, 0x00, this->ring_buf.core.buffer_size);
 
-	this->output_ring_buf_data();
 	return true;
 }
 

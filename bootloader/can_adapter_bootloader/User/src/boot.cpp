@@ -20,6 +20,7 @@
 #include <zephyr/kernel.h>
 
 std::unique_ptr<BOOT> BOOT::Instance = std::make_unique<BOOT>();
+std::unique_ptr<RING_BUF> BOOT::ring_buf_driver = std::make_unique<RING_BUF>();
 std::unique_ptr<OTA_UPGRADE_INFO_T> BOOT::ota_upgrade_info = std::make_unique<OTA_UPGRADE_INFO_T>();
 std::unique_ptr<RETURN_ACK_T> BOOT::return_ack = std::make_unique<RETURN_ACK_T>();
 
@@ -152,6 +153,12 @@ void BOOT::init(void)
 {
 	this->ota_signal_timeout_flag = true;
 	this->deadloop_cnt = 0;
+
+	this->ota_upgrade_info->ota_package.total_package_cnt = 0;
+	this->ota_upgrade_info->ota_package.current_package_index = 0;
+
+	this->ring_buf_driver->ring_buf_init(false, false, WRITE_FLASH_PAGE_SIZE);
+
 	this->can_driver->init();
 	this->dev_info_driver->init();
 }
@@ -227,24 +234,149 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 		this->ota_upgrade_info->ota_firmware_info.firmware_crc =
 			static_cast<uint32_t>((frame->data[14] << 24) | (frame->data[15] << 16) |
 					      (frame->data[16] << 8) | (frame->data[17]));
+		this->ota_upgrade_info->ota_package.total_package_cnt =
+			static_cast<uint32_t>((frame->data[18] << 24) | (frame->data[19] << 16) |
+					      (frame->data[20] << 8) | (frame->data[21]));
 
 		// if upgrade mode is one2one, return ack immediately
 		if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 		    OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE) {
 			if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
 			    OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_UPWARD_UPGRADE) {
+				// get current app firmware info
+				this->flash_manager_driver->read_factory_arg_data();
+				FACTORY_ARG_T temp_factory_arg =
+					this->flash_manager_driver->get_factory_arg();
 
+				// make sure the ota app firmware version and timestamp is upper
+				// than current firmware
+				if (this->ota_upgrade_info->ota_firmware_info.firmware_version <
+				    temp_factory_arg.app_version) {
+
+					// return ack error @RETURN_ACK_OTA_FIRMWARE_INFO_T
+					this->return_ack->return_ack_ota_firmware_info.ota_order =
+						OTA_ORDER_AS_FIRMWARE_INFO;
+					this->return_ack->return_ack_ota_firmware_info
+						.ota_ack_info = ACK_ERROR;
+					this->return_ack->return_ack_ota_firmware_info
+						.local_software_version =
+						temp_factory_arg.app_version;
+					this->return_ack->return_ack_ota_firmware_info
+						.local_software_build_timestamp =
+						temp_factory_arg.app_build_timestamp;
+					memcpy(A2R_ota_ack_frame.data,
+					       &(this->return_ack->return_ack_ota_firmware_info),
+					       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+					this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+
+					break;
+				}
+
+				if (this->ota_upgrade_info->ota_firmware_info
+					    .firmware_build_timestamp <
+				    temp_factory_arg.app_build_timestamp) {
+
+					// return ack error @RETURN_ACK_OTA_FIRMWARE_INFO_T
+					this->return_ack->return_ack_ota_firmware_info.ota_order =
+						OTA_ORDER_AS_FIRMWARE_INFO;
+					this->return_ack->return_ack_ota_firmware_info
+						.ota_ack_info = ACK_ERROR;
+					this->return_ack->return_ack_ota_firmware_info
+						.local_software_version =
+						temp_factory_arg.app_version;
+					this->return_ack->return_ack_ota_firmware_info
+						.local_software_build_timestamp =
+						temp_factory_arg.app_build_timestamp;
+					memcpy(A2R_ota_ack_frame.data,
+					       &(this->return_ack->return_ack_ota_firmware_info),
+					       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+					this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+
+					break;
+				}
+
+				// make sure the ota app firmware size is smaller than the storage
+				// area
+				if (this->ota_upgrade_info->ota_firmware_info.firmware_size <
+				    APP_AREA_SIZE) {
+
+					// return ack error @RETURN_ACK_OTA_FIRMWARE_INFO_T
+					this->return_ack->return_ack_ota_firmware_info.ota_order =
+						OTA_ORDER_AS_FIRMWARE_INFO;
+					this->return_ack->return_ack_ota_firmware_info
+						.ota_ack_info = ACK_ERROR;
+					this->return_ack->return_ack_ota_firmware_info
+						.local_software_version =
+						temp_factory_arg.app_version;
+					this->return_ack->return_ack_ota_firmware_info
+						.local_software_build_timestamp =
+						temp_factory_arg.app_build_timestamp;
+					memcpy(A2R_ota_ack_frame.data,
+					       &(this->return_ack->return_ack_ota_firmware_info),
+					       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+					this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+
+					break;
+				}
+
+				// erase app flash
+				this->flash_manager_driver->erase_all_app_flash();
+
+				// return ack ok
+				this->return_ack->return_ack_ota_firmware_info.ota_order =
+					OTA_ORDER_AS_FIRMWARE_INFO;
+				this->return_ack->return_ack_ota_firmware_info.ota_ack_info =
+					ACK_OK;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_version = temp_factory_arg.app_version;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_build_timestamp =
+					temp_factory_arg.app_build_timestamp;
+				memcpy(A2R_ota_ack_frame.data,
+				       &(this->return_ack->return_ack_ota_firmware_info),
+				       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+				this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+
+				break;
 			} else if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
 				   OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE) {
+
+				// get current app firmware info
+				this->flash_manager_driver->read_factory_arg_data();
+				FACTORY_ARG_T temp_factory_arg =
+					this->flash_manager_driver->get_factory_arg();
+
+				// erase app flash
+				this->flash_manager_driver->erase_all_app_flash();
+
+				// return ack ok
+				this->return_ack->return_ack_ota_firmware_info.ota_order =
+					OTA_ORDER_AS_FIRMWARE_INFO;
+				this->return_ack->return_ack_ota_firmware_info.ota_ack_info =
+					ACK_OK;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_version = temp_factory_arg.app_version;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_build_timestamp =
+					temp_factory_arg.app_build_timestamp;
+				memcpy(A2R_ota_ack_frame.data,
+				       &(this->return_ack->return_ack_ota_firmware_info),
+				       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+				this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+
+				break;
 			}
 		} else if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
 			// send OTA signal to another adapter
 			if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
 			    OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_UPWARD_UPGRADE) {
-
+				// TODO:
+				break;
 			} else if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
 				   OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE) {
+				// TODO:
+				break;
 			}
 		}
 		break;
@@ -257,6 +389,42 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 
 void BOOT::ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame)
 {
+	uint32_t temp_current_package_index = frame->data[1];
+	// make sure every package index is increasing...
+	if (((temp_current_package_index) -
+	     (this->ota_upgrade_info->ota_package.current_package_index)) != 1) {
+		// return ack error
+		this->return_ack->return_ack_ota_package.total_package_cnt =
+			this->ota_upgrade_info->ota_package.total_package_cnt;
+		this->return_ack->return_ack_ota_package.current_package_index =
+			temp_current_package_index;
+		this->return_ack->return_ack_ota_package.ota_ack_info = ACK_ERROR;
+		memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_package),
+		       sizeof(RETURN_ACK_OTA_PACKAGE_T));
+		this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+	}
+
+	// if ringbuffer is full, read all data and write to flash.
+	if (this->ring_buf_driver->get_ring_buf_state() == RING_BUFFER_FULL) {
+		uint8_t temp_buf[WRITE_FLASH_PAGE_SIZE];
+		this->ring_buf_driver->read_data(temp_buf,
+						 static_cast<uint16_t>(WRITE_FLASH_PAGE_SIZE));
+		this->flash_manager_driver->write_app_flash_page(temp_buf, WRITE_FLASH_PAGE_SIZE,
+								 this->firmware_flash_package_cnt);
+		this->firmware_flash_package_cnt += 1;
+	}
+
+	// write firmware to ringbuffer.
+	this->ring_buf_driver->write_data(frame->data, can_dlc_to_bytes(frame->dlc));
+
+	// return ack ok
+	this->return_ack->return_ack_ota_package.total_package_cnt =
+		this->ota_upgrade_info->ota_package.total_package_cnt;
+	this->return_ack->return_ack_ota_package.current_package_index = temp_current_package_index;
+	this->return_ack->return_ack_ota_package.ota_ack_info = ACK_OK;
+	memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_package),
+	       sizeof(RETURN_ACK_OTA_PACKAGE_T));
+	this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
 }
 
 void BOOT::ota_upgrade_app_firmware_one2two(const device *dev, can_frame *frame)

@@ -76,7 +76,6 @@ void avoid_deadloop_stop_callback(struct k_timer *timer)
 	// boot_driver->boot2boot();
 }
 
-volatile static uint32_t test_app_crc32;
 int main(void)
 {
 #ifdef CONFIG_LOG
@@ -103,14 +102,9 @@ int main(void)
 		k_sleep(K_MSEC(200));
 	}
 
-	// 	test_app_crc32 = boot_driver->test_return_app_crc32(static_cast<uint32_t>(66692));
-	// #ifdef CONFIG_LOG
-	// 	LOG_INF("APP CRC32 is %x", test_app_crc32);
-	// #endif
-
 	// if get ota signal timeout, boot to app
 	if (boot_driver->get_ota_signal_timeout_flag() != false) {
-		boot_driver->set_boot_checkpoint_flag();
+		boot_driver->set_boot_checkpoint_flag_active();
 		// boot_driver->boot2app();
 		// boot_driver->boot2boot();
 	}

@@ -20,6 +20,7 @@
 #include <zephyr/kernel.h>
 
 #include "Common.hpp"
+#include "boot.hpp"
 #include "can.hpp"
 #include "timer.hpp"
 #include <memory>
@@ -49,6 +50,10 @@ typedef struct {
 	can_rx_callback_t forward_bus_order_callback;
 	struct can_filter heartbeat_filter;
 	can_rx_callback_t heartbeat_callback;
+	struct can_filter robot2adapter_boot_ota_filter;
+	can_rx_callback_t robot2adapter_boot_ota_callback;
+	struct can_filter adapter2adapter_boot_ota_filter;
+	can_rx_callback_t adapter2adapter_boot_ota_callback;
 } AdapterDataT;
 
 typedef struct {
@@ -78,6 +83,8 @@ class CANFD_FORWARD_PROTOCOL
 	void heartbeat_pong_tong();
 	HeartbeatDetectedStatusE is_detected_heartbeat();
 
+	std::unique_ptr<BOOT> boot_driver_handle = BOOT::getInstance();
+
       private:
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;
 	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
@@ -101,6 +108,10 @@ class CANFD_FORWARD_PROTOCOL
 							       void *user_data);
 	static void data2robot_heartbeat_data_callback(const device *dev, can_frame *frame,
 						       void *user_data);
+	static void robot2adapter_bootloader_ota_callback(const device *dev, can_frame *frame,
+							  void *user_data);
+	static void adapter2adapter_bootloader_ota_callback(const device *dev, can_frame *frame,
+							    void *user_data);
 };
 
 #endif // __CANFD_PROTOCOL_HPP__

@@ -16,7 +16,7 @@
 #ifndef __BOOT_HPP__
 #define __BOOT_HPP__
 
-#include "can.hpp"
+#include "boot_can.hpp"
 #include "dev_info.hpp"
 #include "flash.hpp"
 #include "ring_buf.hpp"
@@ -46,10 +46,9 @@
  * 4. Bootloader will wait for OTA Order as firmware package, Only perform
  * verification for the entire firmware package. Return ACK for every package!
  *
- * 5. BootLoader will wait for OTA Order as check APP CRC32, and BootLoader will
- * check App CRC32 is right or not, if right, BootLoader will return ACK ok and
- * jump to App, else BootLoader will return ACK error, erase App and jump to
- * bootloader,
+ * 5. Bootloader will try jump to App, and The APP will accept
+ * can data with 0x383 and order being OTA_ORDER_AS_CHECK_APP.
+ * The host computer can determine whether the upgrade was successful through this ACK
  */
 
 #define ACK_DEADC0DE 0xDEADC0DEU
@@ -64,7 +63,7 @@ typedef enum {
 	OTA_ORDER_AS_DEFAULT = 0x00U,
 	OTA_ORDER_AS_UPGRADE_MODE = 0x01U,
 	OTA_ORDER_AS_FIRMWARE_INFO = 0x02U,
-	OTA_ORDER_AS_CHECK_APP_CRC = 0x03U,
+	OTA_ORDER_AS_CHECK_APP = 0x03U,
 } OTA_ORDER_E;
 
 typedef enum {
@@ -161,14 +160,14 @@ typedef struct {
 typedef struct {
 	OTA_ORDER_E ota_order;		// refer to OTA_ORDER_E
 	RETURN_ACK_INFO_E ota_ack_info; // refer to RETURN_ACK_INFO_E
-} RETURN_ACK_OTA_CHECK_APP_CRC_T;
+} RETURN_ACK_OTA_CHECK_APP_T;
 
 typedef struct {
 	RETURN_ACK_OTA_SIGNAL_T return_ack_ota_signal;
 	RETURN_ACK_OTA_UPGRADE_T return_ack_ota_upgrade;
 	RETURN_ACK_OTA_FIRMWARE_INFO_T return_ack_ota_firmware_info;
 	RETURN_ACK_OTA_PACKAGE_T return_ack_ota_package;
-	RETURN_ACK_OTA_CHECK_APP_CRC_T return_ack_ota_check_app_crc;
+	RETURN_ACK_OTA_CHECK_APP_T return_ack_ota_check_app_crc;
 } RETURN_ACK_T;
 
 typedef enum {
@@ -199,17 +198,19 @@ class BOOT
 	void set_deadloop_cnt(int cnt);
 	int get_deadloop_cnt(void);
 
-	void set_boot_checkpoint_flag();
-	void set_app_checkpoint_flag();
-	uint32_t test_return_app_crc32(uint32_t app_size);
+	void set_boot_checkpoint_flag_active();
+	void set_app_checkpoint_flag_active();
+	uint8_t get_boot_upgrade_flag();
+	void set_app_upgrade_flag_active();
+	uint32_t test_return_app_crc32(uint8_t *data, uint32_t app_size);
+	static std::unique_ptr<RETURN_ACK_T> return_ack;
 
       private:
 	static std::unique_ptr<BOOT> Instance;
 	static std::unique_ptr<RING_BUF> ring_buf_driver;
 	static std::unique_ptr<OTA_UPGRADE_INFO_T> ota_upgrade_info;
-	static std::unique_ptr<RETURN_ACK_T> return_ack;
 
-	std::shared_ptr<CAN> can_driver = CAN::getInstance();
+	std::shared_ptr<BOOT_CAN> can_driver = BOOT_CAN::getInstance();
 	std::shared_ptr<DEV_INFO> dev_info_driver = DEV_INFO::getInstance();
 	std::unique_ptr<FLASH_MANAGER> flash_manager_driver = FLASH_MANAGER::getInstance();
 

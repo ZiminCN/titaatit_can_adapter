@@ -88,6 +88,8 @@ class FSM
 	static void fsm_sleep_entry(void *obj);
 	static void fsm_sleep_run(void *obj);
 	static void fsm_sleep_exit(void *obj);
+	std::unique_ptr<CANFD_FORWARD_PROTOCOL> canfd_forward_protocol_handle =
+		CANFD_FORWARD_PROTOCOL::getInstance();
 
       private:
 	static std::shared_ptr<FSM> Instance;
@@ -95,8 +97,6 @@ class FSM
 
 	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
 	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
-	std::unique_ptr<CANFD_FORWARD_PROTOCOL> canfd_forward_protocol_handle =
-		CANFD_FORWARD_PROTOCOL::getInstance();
 	std::unique_ptr<USB_ACM> usb_acm_handle = USB_ACM::getInstance();
 	std::unique_ptr<MOSFET_CONTROL> mosfet_control_handle = MOSFET_CONTROL::getInstance();
 	RING_BUF ring_buf_handle;

@@ -24,7 +24,6 @@
 LOG_MODULE_REGISTER(bootloader_ringbuf, LOG_LEVEL_INF);
 #endif
 
-
 bool RING_BUF::ring_buf_init(bool overwrite_flag, bool multi_thread_flag, uint16_t buf_size)
 {
 	this->ring_buf.state = RING_BUFFER_NORMAL;

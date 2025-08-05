@@ -81,6 +81,17 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 		// filter forward bus heartbeat data
 		.heartbeat_filter = {},
 		.heartbeat_callback = NULL,
+		// filter about bootloader ota data(robot data to adapter)
+		.robot2adapter_boot_ota_filter =
+			{
+				.id = CANFD_ID_AS_R2A_OTA_SIGNAL,
+				.mask = 0x7FA,
+				.flags = 0,
+			},
+		.robot2adapter_boot_ota_callback = robot2adapter_bootloader_ota_callback,
+		// filter about bootloader ota data(adapter data to adapter)
+		.adapter2adapter_boot_ota_filter = {},
+		.adapter2adapter_boot_ota_callback = NULL,
 	});
 
 // CAN3 PORT receive another forward adapter device and forward send data to
@@ -132,6 +143,17 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2robot =
 				.flags = 0,
 			},
 		.heartbeat_callback = data2robot_heartbeat_data_callback,
+		// filter about bootloader ota data(robot data to adapter)
+		.robot2adapter_boot_ota_filter = {},
+		.robot2adapter_boot_ota_callback = NULL,
+		// filter about bootloader ota data(adapter data to adapter)
+		.adapter2adapter_boot_ota_filter =
+			{
+				.id = CANFD_ID_AS_A2A_OTA_SIGNAL,
+				.mask = 0x7FA,
+				.flags = 0,
+			},
+		.adapter2adapter_boot_ota_callback = adapter2adapter_bootloader_ota_callback,
 	});
 
 std::unique_ptr<AdapterHeartBeatT> CANFD_FORWARD_PROTOCOL::adapter_heart_beat =
@@ -156,39 +178,48 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 	// 0x89
 	i_ret = this->can_driver_handle->add_can_filter(
 		canfd_2_dev, &adapter_data2adapter->bus_order_lock_order_filter,
-		adapter_data2adapter->bus_order_lock_order_callback);
+		adapter_data2adapter->bus_order_lock_order_callback, this);
 	// add filter for master robot device, forward data to adapter
 	// 0x10A~0x10B
-	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev,
-							&adapter_data2adapter->master_filter,
-							adapter_data2adapter->master_callback);
+	i_ret = this->can_driver_handle->add_can_filter(
+		canfd_2_dev, &adapter_data2adapter->master_filter,
+		adapter_data2adapter->master_callback, this);
 	// add filter for slave robot device, forward data to adapter
 	// 0x124~0x127
 	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev,
 							&adapter_data2adapter->slave_filter,
-							adapter_data2adapter->slave_callback);
+							adapter_data2adapter->slave_callback, this);
 	// add filter for order data
 	// 0x170
-	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev,
-							&adapter_data2adapter->bus_order_filter,
-							adapter_data2adapter->bus_order_callback);
+	i_ret = this->can_driver_handle->add_can_filter(
+		canfd_2_dev, &adapter_data2adapter->bus_order_filter,
+		adapter_data2adapter->bus_order_callback, this);
+	// add filter for bootloader data
+	// 0x382, 0x383, 0x384, 0x385
+	i_ret = this->can_driver_handle->add_can_filter(
+		canfd_2_dev, &adapter_data2adapter->robot2adapter_boot_ota_filter,
+		adapter_data2adapter->robot2adapter_boot_ota_callback, this);
 
 	// add filter for forward bus
 	// 0x10~0x1F
-	i_ret = this->can_driver_handle->add_can_filter(canfd_3_dev,
-							&adapter_data2robot->forward_bus_filter,
-							adapter_data2robot->forward_bus_callback);
+	i_ret = this->can_driver_handle->add_can_filter(
+		canfd_3_dev, &adapter_data2robot->forward_bus_filter,
+		adapter_data2robot->forward_bus_callback, this);
 	// add filter for forward order bus
 	// 0x20~0x2F
 	i_ret = this->can_driver_handle->add_can_filter(
 		canfd_3_dev, &adapter_data2robot->forward_bus_order_filter,
-		adapter_data2robot->forward_bus_order_callback);
+		adapter_data2robot->forward_bus_order_callback, this);
 	// add filter for heartbeat bus
 	// 0x100
-	i_ret = this->can_driver_handle->add_can_filter(canfd_3_dev,
-							&adapter_data2robot->heartbeat_filter,
-							adapter_data2robot->heartbeat_callback);
-
+	i_ret = this->can_driver_handle->add_can_filter(
+		canfd_3_dev, &adapter_data2robot->heartbeat_filter,
+		adapter_data2robot->heartbeat_callback, this);
+	// add filter for bootloader data
+	// 0x202, 0x203, 0x204, 0x205
+	i_ret = this->can_driver_handle->add_can_filter(
+		canfd_3_dev, &adapter_data2robot->adapter2adapter_boot_ota_filter,
+		adapter_data2robot->adapter2adapter_boot_ota_callback, this);
 	return true;
 }
 
@@ -196,10 +227,9 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_lock_order_data_callback(con
 									     can_frame *frame,
 									     void *user_data)
 {
-	ARG_UNUSED(user_data);
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	std::unique_ptr<CANFD_FORWARD_PROTOCOL> forward_driver_handle =
-		CANFD_FORWARD_PROTOCOL::getInstance();
 	const struct device *canfd_3_dev =
 		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
@@ -226,10 +256,9 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_lock_order_data_callback(con
 void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_callback(const device *dev,
 								  can_frame *frame, void *user_data)
 {
-	ARG_UNUSED(user_data);
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	std::unique_ptr<CANFD_FORWARD_PROTOCOL> forward_driver_handle =
-		CANFD_FORWARD_PROTOCOL::getInstance();
 	const struct device *canfd_3_dev =
 		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
@@ -256,8 +285,6 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_callback(const device *
 void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev, can_frame *frame,
 							       void *user_data)
 {
-	ARG_UNUSED(user_data);
-
 	// if ((adapter_heart_beat->is_master_dev != false) ||
 	//     (adapter_heart_beat->is_slave_dev != false)) {
 
@@ -272,8 +299,9 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev
 	// 	adapter_heart_beat->timeout_cnt = 0;
 	// }
 
-	std::unique_ptr<CANFD_FORWARD_PROTOCOL> forward_driver_handle =
-		CANFD_FORWARD_PROTOCOL::getInstance();
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
 	const struct device *canfd_3_dev =
 		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
@@ -302,7 +330,6 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev
 void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev, can_frame *frame,
 							      void *user_data)
 {
-	ARG_UNUSED(user_data);
 
 	// if ((adapter_heart_beat->is_master_dev != false) ||
 	//     (adapter_heart_beat->is_slave_dev != false)) {
@@ -317,8 +344,9 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev,
 	// 	adapter_heart_beat->timeout_cnt = 0;
 	// }
 
-	std::unique_ptr<CANFD_FORWARD_PROTOCOL> forward_driver_handle =
-		CANFD_FORWARD_PROTOCOL::getInstance();
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
 	const struct device *canfd_3_dev =
 		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
@@ -347,10 +375,9 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev,
 void CANFD_FORWARD_PROTOCOL::data2robot_forward_data_callback(const device *dev, can_frame *frame,
 							      void *user_data)
 {
-	ARG_UNUSED(user_data);
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	std::unique_ptr<CANFD_FORWARD_PROTOCOL> forward_driver_handle =
-		CANFD_FORWARD_PROTOCOL::getInstance();
 	const struct device *canfd_2_dev =
 		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
 
@@ -387,10 +414,9 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_bus_order_data_callback(const de
 									can_frame *frame,
 									void *user_data)
 {
-	ARG_UNUSED(user_data);
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	std::unique_ptr<CANFD_FORWARD_PROTOCOL> forward_driver_handle =
-		CANFD_FORWARD_PROTOCOL::getInstance();
 	const struct device *canfd_2_dev =
 		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
 
@@ -420,6 +446,96 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_bus_order_data_callback(const de
 
 	memcpy(canfd_data2robot.data, frame->data, can_dlc_to_bytes(frame->dlc));
 	forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev, &canfd_data2robot);
+}
+
+void CANFD_FORWARD_PROTOCOL::robot2adapter_bootloader_ota_callback(const device *dev,
+								   can_frame *frame,
+								   void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	const struct device *canfd_2_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+
+	switch (frame->id) {
+	case CANFD_ID_AS_R2A_OTA_SIGNAL: {
+		// jump2boot
+		forward_driver_handle->boot_driver_handle->boot2boot();
+		break;
+	}
+	case CANFD_ID_AS_R2A_OTA_UPGRADE: {
+		OTA_ORDER_E ota_order = static_cast<OTA_ORDER_E>(frame->data[0]);
+		if (ota_order == OTA_ORDER_AS_CHECK_APP) {
+			// return ack ok
+			forward_driver_handle->boot_driver_handle->return_ack
+				->return_ack_ota_check_app_crc.ota_order = OTA_ORDER_AS_CHECK_APP;
+			forward_driver_handle->boot_driver_handle->return_ack
+				->return_ack_ota_check_app_crc.ota_ack_info = ACK_OK;
+
+			// set ack frame
+			canfd_data2robot.id = CANFD_ID_AS_A2R_OTA_ACK;
+			canfd_data2robot.dlc = can_bytes_to_dlc(64);
+			canfd_data2robot.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
+
+			memcpy(canfd_data2robot.data,
+			       &(forward_driver_handle->boot_driver_handle->return_ack
+					 ->return_ack_ota_check_app_crc),
+			       sizeof(RETURN_ACK_OTA_CHECK_APP_T));
+			forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev,
+									       &canfd_data2robot);
+		}
+		break;
+	}
+	default: {
+		break;
+	}
+	}
+}
+
+void CANFD_FORWARD_PROTOCOL::adapter2adapter_bootloader_ota_callback(const device *dev,
+								     can_frame *frame,
+								     void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	const struct device *canfd_3_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+
+	switch (frame->id) {
+	case CANFD_ID_AS_A2A_OTA_SIGNAL: {
+		// jump2boot
+		forward_driver_handle->boot_driver_handle->boot2boot();
+		break;
+	}
+	case CANFD_ID_AS_A2A_OTA_UPGRADE: {
+		OTA_ORDER_E ota_order = static_cast<OTA_ORDER_E>(frame->data[0]);
+		if (ota_order == OTA_ORDER_AS_CHECK_APP) {
+			// return ack ok
+			forward_driver_handle->boot_driver_handle->return_ack
+				->return_ack_ota_check_app_crc.ota_order = OTA_ORDER_AS_CHECK_APP;
+			forward_driver_handle->boot_driver_handle->return_ack
+				->return_ack_ota_check_app_crc.ota_ack_info = ACK_OK;
+
+			// set ack frame
+			canfd_data2adapter.id = CANFD_ID_AS_A2A_OTA_ACK;
+			canfd_data2adapter.dlc = can_bytes_to_dlc(64);
+			canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
+
+			memcpy(canfd_data2adapter.data,
+			       &(forward_driver_handle->boot_driver_handle->return_ack
+					 ->return_ack_ota_check_app_crc),
+			       sizeof(RETURN_ACK_OTA_CHECK_APP_T));
+			forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev,
+									       &canfd_data2adapter);
+		}
+		break;
+	}
+	default: {
+		break;
+	}
+	}
 }
 
 static bool stable_connection_flag = false;

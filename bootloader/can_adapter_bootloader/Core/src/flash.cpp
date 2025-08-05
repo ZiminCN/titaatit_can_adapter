@@ -220,48 +220,6 @@ bool FLASH_MANAGER::write_app_flash_page(uint8_t *data, uint16_t data_len, uint8
 	return true;
 }
 
-uint32_t FLASH_MANAGER::calculate_app_firmware_crc32(uint32_t firmware_size)
-{
-	uint32_t crc32 = 0;
-	uint32_t offset = 0;
-	bool is_finished = false;
-	uint8_t temp_data[WRITE_FLASH_PAGE_SIZE];
-	int ret = 0;
-
-	const struct flash_area *temp_fa;
-	struct flash_sector boot_arg_sector;
-	uint32_t sec_cnt = 1;
-
-	flash_area_open(FACTORY_AREA, &temp_fa);
-
-	if (!flash_area_device_is_ready(temp_fa)) {
-		flash_area_close(temp_fa);
-	}
-
-	flash_area_get_sectors(FACTORY_AREA, &sec_cnt, &boot_arg_sector);
-
-	while (!is_finished) {
-		ret = flash_area_read(temp_fa, offset, temp_data, WRITE_FLASH_PAGE_SIZE);
-		if (ret != 0) {
-			break;
-		}
-
-		if ((firmware_size - offset * WRITE_FLASH_PAGE_SIZE) >= WRITE_FLASH_PAGE_SIZE) {
-			crc32 = crc32_ieee_update(crc32, temp_data, WRITE_FLASH_PAGE_SIZE);
-		} else {
-			uint32_t temp_size = firmware_size - offset * WRITE_FLASH_PAGE_SIZE;
-			crc32 = crc32_ieee_update(crc32, temp_data, temp_size);
-			is_finished = true;
-		}
-
-		offset += 1;
-	}
-
-	flash_area_close(temp_fa);
-
-	return crc32;
-}
-
 bool FLASH_MANAGER::erase_all_app_flash()
 {
 	const struct flash_area *temp_fa;

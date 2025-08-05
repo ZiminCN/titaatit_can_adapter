@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __CAN_HPP__
-#define __CAN_HPP__
+#ifndef __BOOT_CAN_HPP__
+#define __BOOT_CAN_HPP__
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/can.h>
@@ -45,37 +45,37 @@ typedef struct {
 
 	int filter_id_array[FILTER_ID_ARRAY_SIZE];
 	int filter_id_array_count;
-} can_bus_status;
+} boot_can_bus_status;
 
-class CAN
+class BOOT_CAN
 {
       public:
-	CAN() = default;
-	~CAN() = default;
-	CAN(const CAN &) = delete;
-	CAN &operator=(const CAN &) = delete;
-	static std::shared_ptr<CAN> getInstance();
+	BOOT_CAN() = default;
+	~BOOT_CAN() = default;
+	BOOT_CAN(const BOOT_CAN &) = delete;
+	BOOT_CAN &operator=(const BOOT_CAN &) = delete;
+	static std::shared_ptr<BOOT_CAN> getInstance();
 	bool init();
 	static void any_tx_callback(const struct device *dev, int error, void *user_data);
 	int send_can_msg(const struct device *dev, const struct can_frame *frame);
 	int add_can_filter(const struct device *dev, k_msgq *msgq, const struct can_filter *filter);
 	int add_can_filter(const struct device *dev, const struct can_filter *filter,
 			   can_rx_callback_t callback, void *user_data);
-	can_bus_status *get_can_bus_status(const struct device *dev);
+	boot_can_bus_status *get_can_bus_status(const struct device *dev);
 	static const struct device *const get_canfd_1_dev();
 	static const struct device *const get_canfd_2_dev();
 	static const struct device *const get_canfd_3_dev();
 	bool reset_can_filter(const struct device *dev);
 
       private:
-	static std::shared_ptr<CAN> Instance;
-	static std::unique_ptr<can_bus_status> canfd_1_dev_bus_status;
-	static std::unique_ptr<can_bus_status> canfd_2_dev_bus_status;
-	static std::unique_ptr<can_bus_status> canfd_3_dev_bus_status;
+	static std::shared_ptr<BOOT_CAN> Instance;
+	static std::unique_ptr<boot_can_bus_status> canfd_1_dev_bus_status;
+	static std::unique_ptr<boot_can_bus_status> canfd_2_dev_bus_status;
+	static std::unique_ptr<boot_can_bus_status> canfd_3_dev_bus_status;
 	static void auto_recovery_can_bus_status_callback(const struct device *dev,
 							  enum can_state state,
 							  struct can_bus_err_cnt err_cnt,
 							  void *user_data);
 };
 
-#endif // __CAN_HPP__
+#endif // __BOOT_CAN_HPP__

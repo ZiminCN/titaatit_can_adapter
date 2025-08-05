@@ -73,7 +73,7 @@ void avoid_deadloop_stop_callback(struct k_timer *timer)
 	boot_driver->set_deadloop_cnt(0);
 	timer_timeout_flag = true;
 	boot_driver->factory_arg_error();
-	// boot_driver->boot2boot();
+	boot_driver->boot2boot();
 }
 
 int main(void)
@@ -105,8 +105,7 @@ int main(void)
 	// if get ota signal timeout, boot to app
 	if (boot_driver->get_ota_signal_timeout_flag() != false) {
 		boot_driver->set_boot_checkpoint_flag_active();
-		// boot_driver->boot2app();
-		// boot_driver->boot2boot();
+		boot_driver->boot2app();
 	}
 
 	// enter ota mode, add a 10 sec timer to avoid dead loop

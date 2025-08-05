@@ -501,7 +501,7 @@ void CANFD_FORWARD_PROTOCOL::adapter2adapter_bootloader_ota_callback(const devic
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
 	const struct device *canfd_3_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
 	switch (frame->id) {
 	case CANFD_ID_AS_A2A_OTA_SIGNAL: {

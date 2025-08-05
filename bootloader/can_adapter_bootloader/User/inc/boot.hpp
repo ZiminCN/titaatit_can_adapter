@@ -223,6 +223,7 @@ class BOOT
 	void cleanup_arm_nvic(void);
 	void return_adapter2robot_ota_ack(can_frame *frame);
 	void return_adapter2adapter_ota_ack(can_frame *frame);
+	void return_adapter2adapter_ota_info(can_frame *frame);
 	void ota_info_verification(const device *dev, can_frame *frame);
 	void ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame);
 	void ota_upgrade_app_firmware_one2two(const device *dev, can_frame *frame);

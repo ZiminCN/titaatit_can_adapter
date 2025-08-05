@@ -203,6 +203,11 @@ void BOOT::return_adapter2adapter_ota_ack(can_frame *frame)
 	this->can_driver->send_can_msg(can_driver->get_canfd_3_dev(), frame);
 }
 
+void BOOT::return_adapter2adapter_ota_info(can_frame *frame)
+{
+	this->can_driver->send_can_msg(can_driver->get_canfd_3_dev(), frame);
+}
+
 void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 {
 	OTA_ORDER_E ota_order = static_cast<OTA_ORDER_E>(frame->data[0]);
@@ -232,8 +237,26 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 			this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
 		} else if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
+
 			// send OTA signal to another adapter
-			// TODO
+			struct can_frame A2A_ota_forward_frame = {
+				.id = CANFD_ID_AS_A2A_OTA_SIGNAL,
+				.dlc = can_bytes_to_dlc(64),
+				.flags = CAN_FRAME_FDF | CAN_FRAME_BRS,
+			};
+			A2A_ota_forward_frame.data_32[0] = static_cast<uint32_t>(ACK_DEADC0DE);
+
+			this->return_adapter2adapter_ota_info(&A2A_ota_ack_frame);
+
+			// send OTA upgrade data to another adapter
+			A2A_ota_forward_frame.id = frame->id;
+			A2A_ota_forward_frame.dlc = frame->dlc;
+			A2A_ota_forward_frame.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
+
+			memcpy(A2A_ota_forward_frame.data, &(frame->data),
+			       sizeof(can_dlc_to_bytes(frame->dlc)));
+
+			this->return_adapter2adapter_ota_info(&A2A_ota_ack_frame);
 		}
 		break;
 	}
@@ -387,16 +410,17 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 			}
 		} else if (this->ota_upgrade_info->ota_order_as_upgrade_mode ==
 			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
-			// send OTA signal to another adapter
-			if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
-			    OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_UPWARD_UPGRADE) {
-				// TODO:
-				break;
-			} else if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
-				   OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE) {
-				// TODO:
-				break;
-			}
+			// TODO
+			// send OTA firmware info data to another adapter
+			struct can_frame A2A_ota_forward_frame = {
+				.id = frame->id,
+				.dlc = frame->dlc,
+				.flags = CAN_FRAME_FDF | CAN_FRAME_BRS,
+			};
+			memcpy(A2A_ota_forward_frame.data, &(frame->data),
+			       sizeof(can_dlc_to_bytes(frame->dlc)));
+
+			this->return_adapter2adapter_ota_info(&A2A_ota_ack_frame);
 		}
 		break;
 	}
@@ -448,6 +472,43 @@ void BOOT::ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame)
 
 void BOOT::ota_upgrade_app_firmware_one2two(const device *dev, can_frame *frame)
 {
+	uint32_t temp_current_package_index = frame->data[1];
+	// make sure every package index is increasing...
+	if (((temp_current_package_index) -
+	     (this->ota_upgrade_info->ota_package.current_package_index)) != 1) {
+		// return ack error
+		this->return_ack->return_ack_ota_package.total_package_cnt =
+			this->ota_upgrade_info->ota_package.total_package_cnt;
+		this->return_ack->return_ack_ota_package.current_package_index =
+			temp_current_package_index;
+		this->return_ack->return_ack_ota_package.ota_ack_info = ACK_ERROR;
+		memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_package),
+		       sizeof(RETURN_ACK_OTA_PACKAGE_T));
+		this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+	}
+
+	// if ringbuffer is full, read all data and write to flash.
+	if (this->ring_buf_driver->get_ring_buf_state() == RING_BUFFER_FULL) {
+		uint8_t temp_buf[WRITE_FLASH_PAGE_SIZE];
+		this->ring_buf_driver->read_data(temp_buf,
+						 static_cast<uint16_t>(WRITE_FLASH_PAGE_SIZE));
+		this->flash_manager_driver->write_app_flash_page(temp_buf, WRITE_FLASH_PAGE_SIZE,
+								 this->firmware_flash_package_cnt);
+		this->firmware_flash_package_cnt += 1;
+	}
+
+	// write firmware to ringbuffer.
+	this->ring_buf_driver->write_data(frame->data, can_dlc_to_bytes(frame->dlc));
+
+	// send OTA firmware package data to another adapter
+	struct can_frame A2A_ota_forward_frame = {
+		.id = CANFD_ID_AS_A2A_OTA_PACKAGE,
+		.dlc = frame->dlc,
+		.flags = CAN_FRAME_FDF | CAN_FRAME_BRS,
+	};
+	memcpy(A2A_ota_forward_frame.data, &(frame->data), sizeof(can_dlc_to_bytes(frame->dlc)));
+
+	this->return_adapter2adapter_ota_info(&A2A_ota_ack_frame);
 }
 
 void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *user_data)
@@ -494,7 +555,8 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 		if (boot_driver->ota_upgrade_info->ota_order_as_upgrade_mode ==
 		    OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE) {
 			boot_driver->ota_upgrade_app_firmware_one2one(dev, frame);
-		} else {
+		} else if (boot_driver->ota_upgrade_info->ota_order_as_upgrade_mode ==
+			   OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO) {
 			boot_driver->ota_upgrade_app_firmware_one2two(dev, frame);
 		}
 

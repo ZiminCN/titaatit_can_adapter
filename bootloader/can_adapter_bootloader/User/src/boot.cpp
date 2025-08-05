@@ -18,6 +18,7 @@
 #include <zephyr/cache.h>
 #include <zephyr/drivers/timer/system_timer.h>
 #include <zephyr/kernel.h>
+#include <zephyr/sys/reboot.h>
 
 std::unique_ptr<BOOT> BOOT::Instance = std::make_unique<BOOT>();
 std::unique_ptr<RING_BUF> BOOT::ring_buf_driver = std::make_unique<RING_BUF>();
@@ -79,25 +80,26 @@ void BOOT::boot2app(void)
 
 void BOOT::boot2boot(void)
 {
-	struct arm_vector_table *vt;
+	// struct arm_vector_table *vt;
 
-	/*boot base address = flash base address
-	 * size*/
-	vt = (struct arm_vector_table *)(CONFIG_FLASH_BASE_ADDRESS);
+	// /*boot base address = flash base address
+	//  * size*/
+	// vt = (struct arm_vector_table *)(CONFIG_FLASH_BASE_ADDRESS);
 
-	if ((vt->msp & 0x2FFE0000) == 0x20000000) {
-		if (IS_ENABLED(CONFIG_SYSTEM_TIMER_HAS_DISABLE_SUPPORT)) {
-			sys_clock_disable();
-		}
+	// if ((vt->msp & 0x2FFE0000) == 0x20000000) {
+	// 	if (IS_ENABLED(CONFIG_SYSTEM_TIMER_HAS_DISABLE_SUPPORT)) {
+	// 		sys_clock_disable();
+	// 	}
 
-		cleanup_arm_nvic(); /* cleanup NVIC registers */
-		__set_MSP(vt->msp);
+	// 	cleanup_arm_nvic(); /* cleanup NVIC registers */
+	// 	__set_MSP(vt->msp);
 
-		__set_CONTROL(0x00); /* application will configures core on its own */
-		__ISB();
+	// 	__set_CONTROL(0x00); /* application will configures core on its own */
+	// 	__ISB();
 
-		((void (*)(void))vt->reset)();
-	}
+	// 	((void (*)(void))vt->reset)();
+	// }
+	// sys_reboot(SYS_REBOOT_COLD);
 }
 
 // refer to "Docs/RM0440.pdf" 1.5(Page: 75/2140) about Product category
@@ -136,6 +138,22 @@ void BOOT::factory_arg_self_check(void)
 	if (likely(ret_bool != false)) {
 		// no factory arg data
 		this->flash_manager_driver->init_new_factory_arg_data();
+		this->flash_manager_driver->write_factory_arg_data();
+	} else {
+		// check checkpoint is exist
+		this->flash_manager_driver->read_factory_arg_data();
+		FACTORY_ARG_T temp_factory_arg = this->flash_manager_driver->get_factory_arg();
+
+		// Under normal circumstances, both the boot checkpoint and the app checkpoint
+		// should be same. If they are not consistent, it indicates that the APP is lost
+		if (temp_factory_arg.boot_checkpoint_flag != temp_factory_arg.app_checkpoint_flag) {
+			temp_factory_arg.arg_status = FACTORY_ARG_STATUS_ERROR;
+		} else {
+			temp_factory_arg.boot_checkpoint_flag = false;
+			temp_factory_arg.app_checkpoint_flag = false;
+		}
+
+		this->flash_manager_driver->set_factory_arg(temp_factory_arg);
 		this->flash_manager_driver->write_factory_arg_data();
 	}
 }
@@ -231,7 +249,7 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 		this->ota_upgrade_info->ota_firmware_info.firmware_build_timestamp =
 			static_cast<uint32_t>((frame->data[10] << 24) | (frame->data[11] << 16) |
 					      (frame->data[12] << 8) | (frame->data[13]));
-		this->ota_upgrade_info->ota_firmware_info.firmware_crc =
+		this->ota_upgrade_info->ota_firmware_info.firmware_crc32 =
 			static_cast<uint32_t>((frame->data[14] << 24) | (frame->data[15] << 16) |
 					      (frame->data[16] << 8) | (frame->data[17]));
 		this->ota_upgrade_info->ota_package.total_package_cnt =
@@ -381,6 +399,49 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 		}
 		break;
 	}
+	case OTA_ORDER_AS_CHECK_APP_CRC: {
+		uint32_t calculate_app_crc32;
+		calculate_app_crc32 = this->flash_manager_driver->calculate_app_firmware_crc32(
+			this->ota_upgrade_info->ota_firmware_info.firmware_size);
+
+		if (calculate_app_crc32 !=
+		    this->ota_upgrade_info->ota_firmware_info.firmware_crc32) {
+			// return ACK Error, erase APP and jump to bootloader
+
+			this->flash_manager_driver->erase_all_app_flash();
+
+			this->return_ack->return_ack_ota_check_app_crc.ota_order =
+				OTA_ORDER_AS_CHECK_APP_CRC;
+			this->return_ack->return_ack_ota_check_app_crc.ota_ack_info = ACK_ERROR;
+			memcpy(A2R_ota_ack_frame.data,
+			       &(this->return_ack->return_ack_ota_check_app_crc),
+			       sizeof(RETURN_ACK_OTA_CHECK_APP_CRC_T));
+			this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+
+			this->boot2boot();
+
+			break;
+		}
+
+		// return ACK OK, modified factory arg and jump to APP
+		this->return_ack->return_ack_ota_check_app_crc.ota_order =
+			OTA_ORDER_AS_CHECK_APP_CRC;
+		this->return_ack->return_ack_ota_check_app_crc.ota_ack_info = ACK_OK;
+		memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_check_app_crc),
+		       sizeof(RETURN_ACK_OTA_CHECK_APP_CRC_T));
+		this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+
+		this->flash_manager_driver->read_factory_arg_data();
+		FACTORY_ARG_T temp_factory_arg = this->flash_manager_driver->get_factory_arg();
+		temp_factory_arg.is_boot_update_flag = true;
+		temp_factory_arg.boot_checkpoint_flag = true;
+		this->flash_manager_driver->set_factory_arg(temp_factory_arg);
+		this->flash_manager_driver->write_factory_arg_data();
+
+		this->boot2app();
+
+		break;
+	}
 	default: {
 		break;
 	}
@@ -437,6 +498,8 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 
 	switch (frame->id) {
 	case CANFD_ID_AS_R2A_OTA_SIGNAL: {
+		boot_driver->set_deadloop_cnt(0);
+
 		// make sure canfd data is 0xdeadc0de
 		uint32_t ota_signal_data = (frame->data[0] << 24) | (frame->data[1] << 16) |
 					   (frame->data[2] << 8) | (frame->data[3]);
@@ -454,10 +517,14 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 		break;
 	};
 	case CANFD_ID_AS_R2A_OTA_UPGRADE: {
+		boot_driver->set_deadloop_cnt(0);
+
 		boot_driver->ota_info_verification(dev, frame);
 		break;
 	};
 	case CANFD_ID_AS_R2A_OTA_PACKAGE: {
+		boot_driver->set_deadloop_cnt(0);
+
 		// make sure ota process is complete
 		if (boot_driver->ota_upgrade_info->ota_order_as_firmware_info_order ==
 		    OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_DEFAULT) {
@@ -472,6 +539,7 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 		} else {
 			boot_driver->ota_upgrade_app_firmware_one2two(dev, frame);
 		}
+
 		break;
 	};
 	default: {
@@ -505,4 +573,27 @@ void BOOT::register_ota_canfd_data_signal()
 	this->can_driver->add_can_filter(this->can_driver->get_canfd_3_dev(),
 					 &adapter2adapter_filter, this->adapter2adapter_ota_process,
 					 this);
+}
+
+void BOOT::set_boot_checkpoint_flag()
+{
+	this->flash_manager_driver->read_factory_arg_data();
+	FACTORY_ARG_T temp_factory_arg = this->flash_manager_driver->get_factory_arg();
+	temp_factory_arg.boot_checkpoint_flag = true;
+	this->flash_manager_driver->set_factory_arg(temp_factory_arg);
+	this->flash_manager_driver->write_factory_arg_data();
+}
+
+void BOOT::set_app_checkpoint_flag()
+{
+	this->flash_manager_driver->read_factory_arg_data();
+	FACTORY_ARG_T temp_factory_arg = this->flash_manager_driver->get_factory_arg();
+	temp_factory_arg.app_checkpoint_flag = true;
+	this->flash_manager_driver->set_factory_arg(temp_factory_arg);
+	this->flash_manager_driver->write_factory_arg_data();
+}
+
+uint32_t BOOT::test_return_app_crc32(uint32_t app_size)
+{
+	return this->flash_manager_driver->calculate_app_firmware_crc32(app_size);
 }

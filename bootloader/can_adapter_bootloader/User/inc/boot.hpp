@@ -26,24 +26,30 @@
  * @brief Bootloader OTA Process
  *
  * 1. Bootloader/Application will wait for  OTA signal to enter OTA process.
- * OTA signal: canfd => ID: 0x382, Data: 0xDEADC0DE, (This is the canfd bus from the robot to the
- * adapter). canfd => ID: 0x202, Data: 0xDEADC0DE, (This is the canfd bus from the adapter to the
- * adapter). Bootloader will return ACK!
+ * OTA signal: canfd => ID: 0x382, Data: 0xDEADC0DE, (This is the canfd bus from
+ * the robot to the adapter). canfd => ID: 0x202, Data: 0xDEADC0DE, (This is the
+ * canfd bus from the adapter to the adapter). Bootloader will return ACK!
  *
  * 2. Bootloader will wait for OTA Order as upgrade mode, Support upgrade
- * methods of one to one and one to two one to one: Robot -> Adapter. one to two:
- * Robot -> Adapter -> Adapter. Return ACK!
- * Please refer to the parameters @arg OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE and @arg
- * OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO Need to send the MCU Device ID and Software Version as ACK to
- * the Robot.
+ * methods of one to one and one to two one to one: Robot -> Adapter. one to
+ * two: Robot -> Adapter -> Adapter. Return ACK! Please refer to the parameters
+ * @arg OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE and @arg
+ * OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO Need to send the MCU Device ID and Software
+ * Version as ACK to the Robot.
  *
  * 3. Bootloader will wait for OTA Order as firmware info, The app version
- * allows upward upgrades and forced upgrade. Please refer to the parameters @arg
- * OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE and @arg OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO. Return ACK!
+ * allows upward upgrades and forced upgrade. Please refer to the parameters
+ * @arg OTA_ORDER_AS_UPGRADE_MODE_ONE2ONE and @arg
+ * OTA_ORDER_AS_UPGRADE_MODE_ONE2TWO. Return ACK!
  *
  *
  * 4. Bootloader will wait for OTA Order as firmware package, Only perform
  * verification for the entire firmware package. Return ACK for every package!
+ *
+ * 5. BootLoader will wait for OTA Order as check APP CRC32, and BootLoader will
+ * check App CRC32 is right or not, if right, BootLoader will return ACK ok and
+ * jump to App, else BootLoader will return ACK error, erase App and jump to
+ * bootloader,
  */
 
 #define ACK_DEADC0DE 0xDEADC0DEU
@@ -58,6 +64,7 @@ typedef enum {
 	OTA_ORDER_AS_DEFAULT = 0x00U,
 	OTA_ORDER_AS_UPGRADE_MODE = 0x01U,
 	OTA_ORDER_AS_FIRMWARE_INFO = 0x02U,
+	OTA_ORDER_AS_CHECK_APP_CRC = 0x03U,
 } OTA_ORDER_E;
 
 typedef enum {
@@ -75,7 +82,7 @@ typedef struct {
 	uint32_t firmware_size;
 	uint32_t firmware_version;
 	uint32_t firmware_build_timestamp;
-	uint32_t firmware_crc;
+	uint32_t firmware_crc32;
 } OTA_FIRMWARE_INFO_T;
 
 typedef struct {
@@ -120,7 +127,7 @@ typedef struct {
  * 			uint32_t firmware_size (Bytes)
  * 			uint32_t firmware_version
  * 			uint32_t firmware_build_timestamp
- * 			uint32_t firmware_crc
+ * 			uint32_t firmware_crc3232
  * 	                uint32_t firmawre_all_package_cnt;
  */
 typedef struct {
@@ -138,6 +145,7 @@ typedef struct {
  * 		  Data: uint32_t total_package_cnt
  * 			uint32_t current_package_cnt
  * 			uint32_t firmware_package[6]
+ *
  */
 typedef struct {
 	uint32_t total_package_cnt;
@@ -145,11 +153,22 @@ typedef struct {
 	RETURN_ACK_INFO_E ota_ack_info; // refer to RETURN_ACK_INFO_E
 } RETURN_ACK_OTA_PACKAGE_T;
 
+/**
+ * receive canfd: ID: 0x383,
+ * 		  Data: uint8_t ota_order
+ *
+ */
+typedef struct {
+	OTA_ORDER_E ota_order;		// refer to OTA_ORDER_E
+	RETURN_ACK_INFO_E ota_ack_info; // refer to RETURN_ACK_INFO_E
+} RETURN_ACK_OTA_CHECK_APP_CRC_T;
+
 typedef struct {
 	RETURN_ACK_OTA_SIGNAL_T return_ack_ota_signal;
 	RETURN_ACK_OTA_UPGRADE_T return_ack_ota_upgrade;
 	RETURN_ACK_OTA_FIRMWARE_INFO_T return_ack_ota_firmware_info;
 	RETURN_ACK_OTA_PACKAGE_T return_ack_ota_package;
+	RETURN_ACK_OTA_CHECK_APP_CRC_T return_ack_ota_check_app_crc;
 } RETURN_ACK_T;
 
 typedef enum {
@@ -179,6 +198,10 @@ class BOOT
 	bool get_ota_signal_timeout_flag(void);
 	void set_deadloop_cnt(int cnt);
 	int get_deadloop_cnt(void);
+
+	void set_boot_checkpoint_flag();
+	void set_app_checkpoint_flag();
+	uint32_t test_return_app_crc32(uint32_t app_size);
 
       private:
 	static std::unique_ptr<BOOT> Instance;

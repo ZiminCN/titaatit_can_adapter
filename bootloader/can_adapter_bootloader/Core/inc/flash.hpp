@@ -75,6 +75,7 @@ class FLASH_MANAGER
 	bool check_factory_arg_data_is_void();
 	void read_factory_arg_data();
 	bool write_factory_arg_data();
+	uint32_t calculate_app_firmware_crc32(uint32_t firmware_size);
 	FACTORY_ARG_T get_factory_arg();
 	void set_factory_arg(FACTORY_ARG_T arg);
 

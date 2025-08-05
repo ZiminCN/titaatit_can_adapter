@@ -225,8 +225,10 @@ class BOOT
 	void return_adapter2adapter_ota_ack(can_frame *frame);
 	void return_adapter2adapter_ota_info(can_frame *frame);
 	void ota_info_verification(const device *dev, can_frame *frame);
+	void ota_one2two_info_verification(const device *dev, can_frame *frame);
 	void ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame);
 	void ota_upgrade_app_firmware_one2two(const device *dev, can_frame *frame);
+	void ota_one2two_upgrade_app_firmware(const device *dev, can_frame *frame);
 };
 
 #endif // __BOOT_HPP__

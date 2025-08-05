@@ -208,6 +208,178 @@ void BOOT::return_adapter2adapter_ota_info(can_frame *frame)
 	this->can_driver->send_can_msg(can_driver->get_canfd_3_dev(), frame);
 }
 
+void BOOT::ota_one2two_info_verification(const device *dev, can_frame *frame)
+{
+	OTA_ORDER_E ota_order = static_cast<OTA_ORDER_E>(frame->data[0]);
+
+	switch (ota_order) {
+	case OTA_ORDER_AS_UPGRADE_MODE: {
+		this->ota_upgrade_info->ota_order = OTA_ORDER_AS_UPGRADE_MODE;
+		this->ota_upgrade_info->ota_order_as_upgrade_mode =
+			static_cast<OTA_ORDER_AS_UPGRADE_MODE_E>(frame->data[1]);
+
+		// if upgrade mode is one2one, return ack immediately
+		// return myself device id and software version
+		HARDWARE_DEVICE_INFO_T dev_info;
+		dev_info = this->dev_info_driver->get_hardware_device_uuid();
+
+		this->return_ack->return_ack_ota_upgrade.ota_order = OTA_ORDER_AS_UPGRADE_MODE;
+		memcpy(this->return_ack->return_ack_ota_upgrade.local_device_id, &(dev_info.uuid),
+		       sizeof(this->return_ack->return_ack_ota_upgrade.local_device_id));
+		this->return_ack->return_ack_ota_upgrade.ota_ack_info = ACK_OK;
+		memcpy(A2A_ota_ack_frame.data, &(this->return_ack->return_ack_ota_upgrade),
+		       sizeof(RETURN_ACK_OTA_UPGRADE_T));
+
+		this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+		break;
+	}
+	case OTA_ORDER_AS_FIRMWARE_INFO: {
+		this->ota_upgrade_info->ota_order = OTA_ORDER_AS_FIRMWARE_INFO;
+		this->ota_upgrade_info->ota_order_as_firmware_info_order =
+			static_cast<OTA_ORDER_AS_FIRMWARE_INFO_ORDER_E>(frame->data[1]);
+		this->ota_upgrade_info->ota_firmware_info.firmware_size =
+			static_cast<uint32_t>((frame->data[2] << 24) | (frame->data[3] << 16) |
+					      (frame->data[4] << 8) | (frame->data[5]));
+		this->ota_upgrade_info->ota_firmware_info.firmware_version =
+			static_cast<uint32_t>((frame->data[6] << 24) | (frame->data[7] << 16) |
+					      (frame->data[8] << 8) | (frame->data[9]));
+		this->ota_upgrade_info->ota_firmware_info.firmware_build_timestamp =
+			static_cast<uint32_t>((frame->data[10] << 24) | (frame->data[11] << 16) |
+					      (frame->data[12] << 8) | (frame->data[13]));
+		this->ota_upgrade_info->ota_firmware_info.firmware_crc32 =
+			static_cast<uint32_t>((frame->data[14] << 24) | (frame->data[15] << 16) |
+					      (frame->data[16] << 8) | (frame->data[17]));
+		this->ota_upgrade_info->ota_package.total_package_cnt =
+			static_cast<uint32_t>((frame->data[18] << 24) | (frame->data[19] << 16) |
+					      (frame->data[20] << 8) | (frame->data[21]));
+
+		if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
+		    OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_UPWARD_UPGRADE) {
+			// get current app firmware info
+			this->flash_manager_driver->read_factory_arg_data();
+			FACTORY_ARG_T temp_factory_arg =
+				this->flash_manager_driver->get_factory_arg();
+
+			// make sure the ota app firmware version and timestamp is upper
+			// than current firmware
+			if (this->ota_upgrade_info->ota_firmware_info.firmware_version <
+			    temp_factory_arg.app_version) {
+
+				// return ack error @RETURN_ACK_OTA_FIRMWARE_INFO_T
+				this->return_ack->return_ack_ota_firmware_info.ota_order =
+					OTA_ORDER_AS_FIRMWARE_INFO;
+				this->return_ack->return_ack_ota_firmware_info.ota_ack_info =
+					ACK_ERROR;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_version = temp_factory_arg.app_version;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_build_timestamp =
+					temp_factory_arg.app_build_timestamp;
+				memcpy(A2A_ota_ack_frame.data,
+				       &(this->return_ack->return_ack_ota_firmware_info),
+				       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+				this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+
+				break;
+			}
+
+			if (this->ota_upgrade_info->ota_firmware_info.firmware_build_timestamp <
+			    temp_factory_arg.app_build_timestamp) {
+
+				// return ack error @RETURN_ACK_OTA_FIRMWARE_INFO_T
+				this->return_ack->return_ack_ota_firmware_info.ota_order =
+					OTA_ORDER_AS_FIRMWARE_INFO;
+				this->return_ack->return_ack_ota_firmware_info.ota_ack_info =
+					ACK_ERROR;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_version = temp_factory_arg.app_version;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_build_timestamp =
+					temp_factory_arg.app_build_timestamp;
+				memcpy(A2A_ota_ack_frame.data,
+				       &(this->return_ack->return_ack_ota_firmware_info),
+				       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+				this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+
+				break;
+			}
+
+			// make sure the ota app firmware size is smaller than the storage
+			// area
+			if (this->ota_upgrade_info->ota_firmware_info.firmware_size <
+			    APP_AREA_SIZE) {
+
+				// return ack error @RETURN_ACK_OTA_FIRMWARE_INFO_T
+				this->return_ack->return_ack_ota_firmware_info.ota_order =
+					OTA_ORDER_AS_FIRMWARE_INFO;
+				this->return_ack->return_ack_ota_firmware_info.ota_ack_info =
+					ACK_ERROR;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_version = temp_factory_arg.app_version;
+				this->return_ack->return_ack_ota_firmware_info
+					.local_software_build_timestamp =
+					temp_factory_arg.app_build_timestamp;
+				memcpy(A2A_ota_ack_frame.data,
+				       &(this->return_ack->return_ack_ota_firmware_info),
+				       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+				this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+
+				break;
+			}
+
+			// erase app flash
+			this->flash_manager_driver->erase_all_app_flash();
+
+			// return ack ok
+			this->return_ack->return_ack_ota_firmware_info.ota_order =
+				OTA_ORDER_AS_FIRMWARE_INFO;
+			this->return_ack->return_ack_ota_firmware_info.ota_ack_info = ACK_OK;
+			this->return_ack->return_ack_ota_firmware_info.local_software_version =
+				temp_factory_arg.app_version;
+			this->return_ack->return_ack_ota_firmware_info
+				.local_software_build_timestamp =
+				temp_factory_arg.app_build_timestamp;
+			memcpy(A2A_ota_ack_frame.data,
+			       &(this->return_ack->return_ack_ota_firmware_info),
+			       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+			this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+
+			break;
+		} else if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
+			   OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE) {
+
+			// get current app firmware info
+			this->flash_manager_driver->read_factory_arg_data();
+			FACTORY_ARG_T temp_factory_arg =
+				this->flash_manager_driver->get_factory_arg();
+
+			// erase app flash
+			this->flash_manager_driver->erase_all_app_flash();
+
+			// return ack ok
+			this->return_ack->return_ack_ota_firmware_info.ota_order =
+				OTA_ORDER_AS_FIRMWARE_INFO;
+			this->return_ack->return_ack_ota_firmware_info.ota_ack_info = ACK_OK;
+			this->return_ack->return_ack_ota_firmware_info.local_software_version =
+				temp_factory_arg.app_version;
+			this->return_ack->return_ack_ota_firmware_info
+				.local_software_build_timestamp =
+				temp_factory_arg.app_build_timestamp;
+			memcpy(A2A_ota_ack_frame.data,
+			       &(this->return_ack->return_ack_ota_firmware_info),
+			       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+			this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+
+			break;
+		}
+		break;
+	}
+	default: {
+		break;
+	}
+	}
+}
+
 void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 {
 	OTA_ORDER_E ota_order = static_cast<OTA_ORDER_E>(frame->data[0]);
@@ -430,6 +602,46 @@ void BOOT::ota_info_verification(const device *dev, can_frame *frame)
 	}
 }
 
+void BOOT::ota_one2two_upgrade_app_firmware(const device *dev, can_frame *frame)
+{
+	uint32_t temp_current_package_index = frame->data[1];
+	// make sure every package index is increasing...
+	if (((temp_current_package_index) -
+	     (this->ota_upgrade_info->ota_package.current_package_index)) != 1) {
+		// return ack error
+		this->return_ack->return_ack_ota_package.total_package_cnt =
+			this->ota_upgrade_info->ota_package.total_package_cnt;
+		this->return_ack->return_ack_ota_package.current_package_index =
+			temp_current_package_index;
+		this->return_ack->return_ack_ota_package.ota_ack_info = ACK_ERROR;
+		memcpy(A2A_ota_ack_frame.data, &(this->return_ack->return_ack_ota_package),
+		       sizeof(RETURN_ACK_OTA_PACKAGE_T));
+		this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+	}
+
+	// if ringbuffer is full, read all data and write to flash.
+	if (this->ring_buf_driver->get_ring_buf_state() == RING_BUFFER_FULL) {
+		uint8_t temp_buf[WRITE_FLASH_PAGE_SIZE];
+		this->ring_buf_driver->read_data(temp_buf,
+						 static_cast<uint16_t>(WRITE_FLASH_PAGE_SIZE));
+		this->flash_manager_driver->write_app_flash_page(temp_buf, WRITE_FLASH_PAGE_SIZE,
+								 this->firmware_flash_package_cnt);
+		this->firmware_flash_package_cnt += 1;
+	}
+
+	// write firmware to ringbuffer.
+	this->ring_buf_driver->write_data(frame->data, can_dlc_to_bytes(frame->dlc));
+
+	// return ack ok
+	this->return_ack->return_ack_ota_package.total_package_cnt =
+		this->ota_upgrade_info->ota_package.total_package_cnt;
+	this->return_ack->return_ack_ota_package.current_package_index = temp_current_package_index;
+	this->return_ack->return_ack_ota_package.ota_ack_info = ACK_OK;
+	memcpy(A2A_ota_ack_frame.data, &(this->return_ack->return_ack_ota_package),
+	       sizeof(RETURN_ACK_OTA_PACKAGE_T));
+	this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+}
+
 void BOOT::ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame)
 {
 	uint32_t temp_current_package_index = frame->data[1];
@@ -570,6 +782,57 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 
 void BOOT::adapter2adapter_ota_process(const device *dev, can_frame *frame, void *user_data)
 {
+	BOOT *boot_driver = static_cast<BOOT *>(user_data);
+
+	switch (frame->id) {
+	case CANFD_ID_AS_A2A_OTA_SIGNAL: {
+		boot_driver->set_deadloop_cnt(0);
+
+		// make sure canfd data is 0xdeadc0de
+		uint32_t ota_signal_data = (frame->data[0] << 24) | (frame->data[1] << 16) |
+					   (frame->data[2] << 8) | (frame->data[3]);
+		if (ota_signal_data != static_cast<uint32_t>(ACK_DEADC0DE)) {
+			break;
+		}
+
+		boot_driver->set_ota_signal_timeout_flag(false);
+		// first ack needs return 0xdeadc0de
+		boot_driver->return_ack->return_ack_ota_signal.ota_ack_info =
+			static_cast<uint32_t>(ACK_DEADC0DE);
+		memcpy(A2A_ota_ack_frame.data, &(boot_driver->return_ack),
+		       sizeof(RETURN_ACK_OTA_SIGNAL_T));
+		boot_driver->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+		break;
+	};
+	case CANFD_ID_AS_A2A_OTA_UPGRADE: {
+		boot_driver->set_deadloop_cnt(0);
+
+		boot_driver->ota_one2two_info_verification(dev, frame);
+		break;
+	};
+	case CANFD_ID_AS_A2A_OTA_PACKAGE: {
+		boot_driver->set_deadloop_cnt(0);
+
+		// make sure ota process is complete
+		if (boot_driver->ota_upgrade_info->ota_order_as_firmware_info_order ==
+		    OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_DEFAULT) {
+			A2A_ota_ack_frame.data[0] = ACK_ERROR;
+			boot_driver->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+			break;
+		}
+
+		boot_driver->ota_one2two_upgrade_app_firmware(dev, frame);
+
+		break;
+	};
+	case CANFD_ID_AS_A2A_OTA_ACK: {
+		// get another adapter ack, and return ack to robot
+		break;
+	}
+	default: {
+		break;
+	}
+	}
 }
 
 void BOOT::register_ota_canfd_data_signal()

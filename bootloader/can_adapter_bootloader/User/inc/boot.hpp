@@ -48,7 +48,23 @@
  *
  * 5. Bootloader will try jump to App, and The APP will accept
  * can data with 0x383 and order being OTA_ORDER_AS_CHECK_APP.
- * The host computer can determine whether the upgrade was successful through this ACK
+ * The host computer can determine whether the upgrade was successful through
+ * this ACK
+ */
+
+/**
+ * 1. one2one upgrade mode:
+ *	This mode involves the robot directly upgrading the adapter. The adapter
+ *only needs to perform ACK processing according to the above annotations in
+ *order to upgrade normally.
+ *
+ * 2. one2two upgrade mode:
+ * 	This mode involves the robot upgrading both the master adapter and the
+ *slave adapter simultaneously. The master adapter can communicate normally in a
+ *one-to-one mode, but instead of immediately returning an ACK, it forwards the
+ *data passed over by the robot to the slave adapter. The master adapter will
+ *only return an ACK after the slave adapter has returned a correct ACK
+ *
  */
 
 #define ACK_DEADC0DE 0xDEADC0DEU
@@ -63,7 +79,8 @@ typedef enum {
 	OTA_ORDER_AS_DEFAULT = 0x00U,
 	OTA_ORDER_AS_UPGRADE_MODE = 0x01U,
 	OTA_ORDER_AS_FIRMWARE_INFO = 0x02U,
-	OTA_ORDER_AS_CHECK_APP = 0x03U,
+	OTA_ORDER_AS_OTA_PACKAGE = 0x03U,
+	OTA_ORDER_AS_CHECK_APP = 0x04U,
 } OTA_ORDER_E;
 
 typedef enum {
@@ -103,6 +120,7 @@ typedef struct {
  * 		  Data: 0xDEADC0DE
  */
 typedef struct {
+	OTA_ORDER_E ota_order;
 	uint32_t ota_ack_info; // refer to RETURN_ACK_INFO_E
 } RETURN_ACK_OTA_SIGNAL_T;
 
@@ -147,6 +165,7 @@ typedef struct {
  *
  */
 typedef struct {
+	OTA_ORDER_E ota_order; // refer to OTA_ORDER_E
 	uint32_t total_package_cnt;
 	uint32_t current_package_index;
 	RETURN_ACK_INFO_E ota_ack_info; // refer to RETURN_ACK_INFO_E
@@ -167,7 +186,7 @@ typedef struct {
 	RETURN_ACK_OTA_UPGRADE_T return_ack_ota_upgrade;
 	RETURN_ACK_OTA_FIRMWARE_INFO_T return_ack_ota_firmware_info;
 	RETURN_ACK_OTA_PACKAGE_T return_ack_ota_package;
-	RETURN_ACK_OTA_CHECK_APP_T return_ack_ota_check_app_crc;
+	RETURN_ACK_OTA_CHECK_APP_T return_ack_ota_check_app;
 } RETURN_ACK_T;
 
 typedef enum {
@@ -217,9 +236,10 @@ class BOOT
 	inline static bool ota_signal_timeout_flag = true;
 	inline static int deadloop_cnt = 0;
 	inline static int firmware_flash_package_cnt = 1;
+	inline static bool ota_one2two_slave_device_flag = false;
 	static void robot2adapter_ota_process(const device *dev, can_frame *frame, void *user_data);
-	static void adapter2adapter_ota_process(const device *dev, can_frame *frame,
-						void *user_data);
+	static void adapter2adapter_ota_ack_process(const device *dev, can_frame *frame,
+						    void *user_data);
 	void cleanup_arm_nvic(void);
 	void return_adapter2robot_ota_ack(can_frame *frame);
 	void return_adapter2adapter_ota_ack(can_frame *frame);
@@ -229,6 +249,8 @@ class BOOT
 	void ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame);
 	void ota_upgrade_app_firmware_one2two(const device *dev, can_frame *frame);
 	void ota_one2two_upgrade_app_firmware(const device *dev, can_frame *frame);
+	void ota_adapter2adapter_ack_process(const device *dev, can_frame *frame, void *user_data);
+	void adapter2adapter_slave_adpater_ack_process(const device *dev, can_frame *frame);
 };
 
 #endif // __BOOT_HPP__

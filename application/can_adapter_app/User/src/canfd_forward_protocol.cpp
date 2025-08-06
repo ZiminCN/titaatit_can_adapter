@@ -469,9 +469,9 @@ void CANFD_FORWARD_PROTOCOL::robot2adapter_bootloader_ota_callback(const device 
 		if (ota_order == OTA_ORDER_AS_CHECK_APP) {
 			// return ack ok
 			forward_driver_handle->boot_driver_handle->return_ack
-				->return_ack_ota_check_app_crc.ota_order = OTA_ORDER_AS_CHECK_APP;
+				->return_ack_ota_check_app.ota_order = OTA_ORDER_AS_CHECK_APP;
 			forward_driver_handle->boot_driver_handle->return_ack
-				->return_ack_ota_check_app_crc.ota_ack_info = ACK_OK;
+				->return_ack_ota_check_app.ota_ack_info = ACK_OK;
 
 			// set ack frame
 			canfd_data2robot.id = CANFD_ID_AS_A2R_OTA_ACK;
@@ -480,7 +480,7 @@ void CANFD_FORWARD_PROTOCOL::robot2adapter_bootloader_ota_callback(const device 
 
 			memcpy(canfd_data2robot.data,
 			       &(forward_driver_handle->boot_driver_handle->return_ack
-					 ->return_ack_ota_check_app_crc),
+					 ->return_ack_ota_check_app),
 			       sizeof(RETURN_ACK_OTA_CHECK_APP_T));
 			forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev,
 									       &canfd_data2robot);
@@ -514,9 +514,9 @@ void CANFD_FORWARD_PROTOCOL::adapter2adapter_bootloader_ota_callback(const devic
 		if (ota_order == OTA_ORDER_AS_CHECK_APP) {
 			// return ack ok
 			forward_driver_handle->boot_driver_handle->return_ack
-				->return_ack_ota_check_app_crc.ota_order = OTA_ORDER_AS_CHECK_APP;
+				->return_ack_ota_check_app.ota_order = OTA_ORDER_AS_CHECK_APP;
 			forward_driver_handle->boot_driver_handle->return_ack
-				->return_ack_ota_check_app_crc.ota_ack_info = ACK_OK;
+				->return_ack_ota_check_app.ota_ack_info = ACK_OK;
 
 			// set ack frame
 			canfd_data2adapter.id = CANFD_ID_AS_A2A_OTA_ACK;
@@ -525,7 +525,7 @@ void CANFD_FORWARD_PROTOCOL::adapter2adapter_bootloader_ota_callback(const devic
 
 			memcpy(canfd_data2adapter.data,
 			       &(forward_driver_handle->boot_driver_handle->return_ack
-					 ->return_ack_ota_check_app_crc),
+					 ->return_ack_ota_check_app),
 			       sizeof(RETURN_ACK_OTA_CHECK_APP_T));
 			forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev,
 									       &canfd_data2adapter);
@@ -628,7 +628,8 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 		if (stable_connection_flag == false) {
 			lost_heartbeat_cnt += 1;
 
-			// it means lost some heartbeat at the very beginning of the docking process
+			// it means lost some heartbeat at the very beginning of the docking
+			// process
 			if (((lost_heartbeat_cnt - stable_heartbeat_cnt) >= 5)) {
 				lost_heartbeat_cnt = 0;
 				stable_heartbeat_cnt = 0;
@@ -682,17 +683,19 @@ static bool last_heartbeat_status = false;
 HeartbeatDetectedStatusE CANFD_FORWARD_PROTOCOL::is_detected_heartbeat()
 {
 	if (last_heartbeat_status == adapter_heart_beat->is_received_heartbeat) {
-		return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // No change in heartbeat
-								       // status
+		return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // No change in
+								       // heartbeat status
 	} else {
 		last_heartbeat_status = adapter_heart_beat->is_received_heartbeat;
 		if (last_heartbeat_status == true) {
-			return HeartbeatDetectedStatusE::HEART_BEAT_DETECTED; // Heartbeat detected
+			return HeartbeatDetectedStatusE::HEART_BEAT_DETECTED; // Heartbeat
+									      // detected
 		} else {
 			return HEART_BEAT_LOST; // Heartbeat lost
 		}
 	}
 
-	return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // Default return value if no
-							       // condition is met
+	return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // Default return value
+							       // if no condition is
+							       // met
 }

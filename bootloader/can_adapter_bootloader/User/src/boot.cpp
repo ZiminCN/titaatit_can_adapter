@@ -163,6 +163,7 @@ void BOOT::factory_arg_self_check(void)
 		} else {
 			temp_factory_arg.boot_checkpoint_flag = false;
 			temp_factory_arg.app_checkpoint_flag = false;
+			temp_factory_arg.arg_status = FACTORY_ARG_STATUS_OK;
 		}
 
 		this->flash_manager_driver->set_factory_arg(temp_factory_arg);
@@ -191,6 +192,11 @@ void BOOT::init(void)
 
 	this->can_driver->init();
 	this->dev_info_driver->init();
+
+	memset(this->ota_upgrade_info.get(), 0x00, sizeof(OTA_UPGRADE_INFO_T));
+	memset(this->return_ack.get(), 0x00, sizeof(RETURN_ACK_T));
+	memset(A2R_ota_ack_frame.data, 0x00, sizeof(A2R_ota_ack_frame.data));
+	memset(A2A_ota_ack_frame.data, 0x00, sizeof(A2A_ota_ack_frame.data));
 }
 
 void BOOT::return_adapter2robot_ota_ack(can_frame *frame)
@@ -208,6 +214,8 @@ void BOOT::return_adapter2adapter_ota_info(can_frame *frame)
 	this->can_driver->send_can_msg(can_driver->get_canfd_3_dev(), frame);
 }
 
+// this is the data that will be received from the master adapter, the slave adapter need to return
+// ACK to master adapter
 void BOOT::ota_one2two_info_verification(const device *dev, can_frame *frame)
 {
 	OTA_ORDER_E ota_order = static_cast<OTA_ORDER_E>(frame->data[0]);
@@ -231,6 +239,7 @@ void BOOT::ota_one2two_info_verification(const device *dev, can_frame *frame)
 		       sizeof(RETURN_ACK_OTA_UPGRADE_T));
 
 		this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
+
 		break;
 	}
 	case OTA_ORDER_AS_FIRMWARE_INFO: {
@@ -344,6 +353,8 @@ void BOOT::ota_one2two_info_verification(const device *dev, can_frame *frame)
 			       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
 			this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
 
+			this->ota_one2two_slave_device_flag = true;
+
 			break;
 		} else if (this->ota_upgrade_info->ota_order_as_firmware_info_order ==
 			   OTA_ORDER_AS_FIRMWARE_INFO_ORDER_AS_FORCED_UPGRADE) {
@@ -370,6 +381,7 @@ void BOOT::ota_one2two_info_verification(const device *dev, can_frame *frame)
 			       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
 			this->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
 
+			this->ota_one2two_slave_device_flag = true;
 			break;
 		}
 		break;
@@ -609,6 +621,7 @@ void BOOT::ota_one2two_upgrade_app_firmware(const device *dev, can_frame *frame)
 	if (((temp_current_package_index) -
 	     (this->ota_upgrade_info->ota_package.current_package_index)) != 1) {
 		// return ack error
+		this->return_ack->return_ack_ota_package.ota_order = OTA_ORDER_AS_OTA_PACKAGE;
 		this->return_ack->return_ack_ota_package.total_package_cnt =
 			this->ota_upgrade_info->ota_package.total_package_cnt;
 		this->return_ack->return_ack_ota_package.current_package_index =
@@ -633,6 +646,7 @@ void BOOT::ota_one2two_upgrade_app_firmware(const device *dev, can_frame *frame)
 	this->ring_buf_driver->write_data(frame->data, can_dlc_to_bytes(frame->dlc));
 
 	// return ack ok
+	this->return_ack->return_ack_ota_package.ota_order = OTA_ORDER_AS_OTA_PACKAGE;
 	this->return_ack->return_ack_ota_package.total_package_cnt =
 		this->ota_upgrade_info->ota_package.total_package_cnt;
 	this->return_ack->return_ack_ota_package.current_package_index = temp_current_package_index;
@@ -649,6 +663,7 @@ void BOOT::ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame)
 	if (((temp_current_package_index) -
 	     (this->ota_upgrade_info->ota_package.current_package_index)) != 1) {
 		// return ack error
+		this->return_ack->return_ack_ota_package.ota_order = OTA_ORDER_AS_OTA_PACKAGE;
 		this->return_ack->return_ack_ota_package.total_package_cnt =
 			this->ota_upgrade_info->ota_package.total_package_cnt;
 		this->return_ack->return_ack_ota_package.current_package_index =
@@ -673,6 +688,7 @@ void BOOT::ota_upgrade_app_firmware_one2one(const device *dev, can_frame *frame)
 	this->ring_buf_driver->write_data(frame->data, can_dlc_to_bytes(frame->dlc));
 
 	// return ack ok
+	this->return_ack->return_ack_ota_package.ota_order = OTA_ORDER_AS_OTA_PACKAGE;
 	this->return_ack->return_ack_ota_package.total_package_cnt =
 		this->ota_upgrade_info->ota_package.total_package_cnt;
 	this->return_ack->return_ack_ota_package.current_package_index = temp_current_package_index;
@@ -689,6 +705,7 @@ void BOOT::ota_upgrade_app_firmware_one2two(const device *dev, can_frame *frame)
 	if (((temp_current_package_index) -
 	     (this->ota_upgrade_info->ota_package.current_package_index)) != 1) {
 		// return ack error
+		this->return_ack->return_ack_ota_package.ota_order = OTA_ORDER_AS_OTA_PACKAGE;
 		this->return_ack->return_ack_ota_package.total_package_cnt =
 			this->ota_upgrade_info->ota_package.total_package_cnt;
 		this->return_ack->return_ack_ota_package.current_package_index =
@@ -738,11 +755,16 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 			break;
 		}
 
+		if (boot_driver->ota_one2two_slave_device_flag != false) {
+			break;
+		}
+
 		boot_driver->set_ota_signal_timeout_flag(false);
 		// first ack needs return 0xdeadc0de
+		boot_driver->return_ack->return_ack_ota_signal.ota_order = OTA_ORDER_AS_DEFAULT;
 		boot_driver->return_ack->return_ack_ota_signal.ota_ack_info =
 			static_cast<uint32_t>(ACK_DEADC0DE);
-		memcpy(A2R_ota_ack_frame.data, &(boot_driver->return_ack),
+		memcpy(A2R_ota_ack_frame.data, &(boot_driver->return_ack->return_ack_ota_signal),
 		       sizeof(RETURN_ACK_OTA_SIGNAL_T));
 		boot_driver->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
 		break;
@@ -750,11 +772,19 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 	case CANFD_ID_AS_R2A_OTA_UPGRADE: {
 		boot_driver->set_deadloop_cnt(0);
 
+		if (boot_driver->ota_one2two_slave_device_flag != false) {
+			break;
+		}
+
 		boot_driver->ota_info_verification(dev, frame);
 		break;
 	};
 	case CANFD_ID_AS_R2A_OTA_PACKAGE: {
 		boot_driver->set_deadloop_cnt(0);
+
+		if (boot_driver->ota_one2two_slave_device_flag != false) {
+			break;
+		}
 
 		// make sure ota process is complete
 		if (boot_driver->ota_upgrade_info->ota_order_as_firmware_info_order ==
@@ -780,7 +810,150 @@ void BOOT::robot2adapter_ota_process(const device *dev, can_frame *frame, void *
 	}
 }
 
-void BOOT::adapter2adapter_ota_process(const device *dev, can_frame *frame, void *user_data)
+void BOOT::adapter2adapter_slave_adpater_ack_process(const device *dev, can_frame *frame)
+{
+	OTA_ORDER_E temp_ota_order = static_cast<OTA_ORDER_E>(frame->data[0]);
+
+	switch (temp_ota_order) {
+	case OTA_ORDER_AS_DEFAULT: {
+		// dont care slave adapter device ack
+		break;
+	}
+	case OTA_ORDER_AS_UPGRADE_MODE: {
+		// get slave adapter upgrade mode ack
+
+		// return myself master device id and software version
+		HARDWARE_DEVICE_INFO_T dev_info;
+		dev_info = this->dev_info_driver->get_hardware_device_uuid();
+
+		// get slave adapter device id
+		RETURN_ACK_OTA_UPGRADE_T slave_ack_data;
+		memcpy(&slave_ack_data, &(frame->data), sizeof(RETURN_ACK_OTA_UPGRADE_T));
+
+		this->return_ack->return_ack_ota_upgrade.ota_order = OTA_ORDER_AS_UPGRADE_MODE;
+		this->return_ack->return_ack_ota_upgrade.ota_ack_info = ACK_OK;
+		memcpy(this->return_ack->return_ack_ota_upgrade.local_device_id, &(dev_info.uuid),
+		       sizeof(this->return_ack->return_ack_ota_upgrade.local_device_id));
+		memcpy(this->return_ack->return_ack_ota_upgrade.remote_device_id,
+		       &(slave_ack_data.local_device_id),
+		       sizeof(this->return_ack->return_ack_ota_upgrade.remote_device_id));
+		memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_upgrade),
+		       sizeof(RETURN_ACK_OTA_UPGRADE_T));
+
+		this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+		break;
+	}
+	case OTA_ORDER_AS_FIRMWARE_INFO: {
+		// get current app firmware info
+		this->flash_manager_driver->read_factory_arg_data();
+		FACTORY_ARG_T temp_factory_arg = this->flash_manager_driver->get_factory_arg();
+
+		// get slave adapter app firmware info
+		RETURN_ACK_OTA_FIRMWARE_INFO_T slave_ack_data;
+		memcpy(&slave_ack_data, &(frame->data), sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+
+		if (slave_ack_data.ota_ack_info != ACK_OK) {
+			// return ack error
+			this->return_ack->return_ack_ota_firmware_info.ota_order =
+				OTA_ORDER_AS_FIRMWARE_INFO;
+			this->return_ack->return_ack_ota_firmware_info.ota_ack_info = ACK_ERROR;
+			this->return_ack->return_ack_ota_firmware_info.local_software_version =
+				temp_factory_arg.app_version;
+			this->return_ack->return_ack_ota_firmware_info
+				.local_software_build_timestamp =
+				temp_factory_arg.app_build_timestamp;
+			this->return_ack->return_ack_ota_firmware_info.remote_software_version =
+				slave_ack_data.local_software_version;
+			this->return_ack->return_ack_ota_firmware_info
+				.remote_software_build_timestamp =
+				slave_ack_data.local_software_build_timestamp;
+			memcpy(A2R_ota_ack_frame.data,
+			       &(this->return_ack->return_ack_ota_firmware_info),
+			       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+			this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+		}
+
+		// return ack ok
+		this->return_ack->return_ack_ota_firmware_info.ota_order =
+			OTA_ORDER_AS_FIRMWARE_INFO;
+		this->return_ack->return_ack_ota_firmware_info.ota_ack_info = ACK_OK;
+		this->return_ack->return_ack_ota_firmware_info.local_software_version =
+			temp_factory_arg.app_version;
+		this->return_ack->return_ack_ota_firmware_info.local_software_build_timestamp =
+			temp_factory_arg.app_build_timestamp;
+		this->return_ack->return_ack_ota_firmware_info.remote_software_version =
+			slave_ack_data.local_software_version;
+		this->return_ack->return_ack_ota_firmware_info.remote_software_build_timestamp =
+			slave_ack_data.local_software_build_timestamp;
+		memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_firmware_info),
+		       sizeof(RETURN_ACK_OTA_FIRMWARE_INFO_T));
+		this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+		break;
+	}
+	case OTA_ORDER_AS_OTA_PACKAGE: {
+		RETURN_ACK_OTA_PACKAGE_T slave_ack_data;
+		memcpy(&slave_ack_data, &(frame->data), sizeof(RETURN_ACK_OTA_PACKAGE_T));
+
+		// check ack ok
+		if (slave_ack_data.ota_ack_info != ACK_OK) {
+			// return ack error
+			this->return_ack->return_ack_ota_package.ota_order =
+				OTA_ORDER_AS_OTA_PACKAGE;
+			this->return_ack->return_ack_ota_package.total_package_cnt =
+				this->ota_upgrade_info->ota_package.total_package_cnt;
+			this->return_ack->return_ack_ota_package.current_package_index =
+				this->ota_upgrade_info->ota_package.current_package_index;
+			this->return_ack->return_ack_ota_package.ota_ack_info = ACK_ERROR;
+			memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_package),
+			       sizeof(RETURN_ACK_OTA_PACKAGE_T));
+			this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+			break;
+		}
+
+		// check ack current package and total packages cnt is right
+		if ((slave_ack_data.total_package_cnt !=
+		     this->ota_upgrade_info->ota_package.total_package_cnt) &&
+		    (slave_ack_data.current_package_index !=
+		     this->ota_upgrade_info->ota_package.current_package_index)) {
+			// return ack error
+			this->return_ack->return_ack_ota_package.ota_order =
+				OTA_ORDER_AS_OTA_PACKAGE;
+			this->return_ack->return_ack_ota_package.total_package_cnt =
+				this->ota_upgrade_info->ota_package.total_package_cnt;
+			this->return_ack->return_ack_ota_package.current_package_index =
+				this->ota_upgrade_info->ota_package.current_package_index;
+			this->return_ack->return_ack_ota_package.ota_ack_info = ACK_ERROR;
+			memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_package),
+			       sizeof(RETURN_ACK_OTA_PACKAGE_T));
+			this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+			break;
+		}
+
+		// return ack ok
+		this->return_ack->return_ack_ota_package.ota_order = OTA_ORDER_AS_OTA_PACKAGE;
+		this->return_ack->return_ack_ota_package.total_package_cnt =
+			this->ota_upgrade_info->ota_package.total_package_cnt;
+		this->return_ack->return_ack_ota_package.current_package_index =
+			this->ota_upgrade_info->ota_package.current_package_index;
+		this->return_ack->return_ack_ota_package.ota_ack_info = ACK_OK;
+		memcpy(A2R_ota_ack_frame.data, &(this->return_ack->return_ack_ota_package),
+		       sizeof(RETURN_ACK_OTA_PACKAGE_T));
+		this->return_adapter2robot_ota_ack(&A2R_ota_ack_frame);
+		break;
+	}
+	case OTA_ORDER_AS_CHECK_APP: {
+		// dont care about the OTA_ORDER_AS_CHECK_APP, APP will return ACK
+		break;
+	}
+	default: {
+		break;
+	}
+	}
+}
+
+// This is used to receive commands forwarded to this device by another adapter in the one2two
+// upgrade mode
+void BOOT::adapter2adapter_ota_ack_process(const device *dev, can_frame *frame, void *user_data)
 {
 	BOOT *boot_driver = static_cast<BOOT *>(user_data);
 
@@ -797,9 +970,10 @@ void BOOT::adapter2adapter_ota_process(const device *dev, can_frame *frame, void
 
 		boot_driver->set_ota_signal_timeout_flag(false);
 		// first ack needs return 0xdeadc0de
+		boot_driver->return_ack->return_ack_ota_signal.ota_order = OTA_ORDER_AS_DEFAULT;
 		boot_driver->return_ack->return_ack_ota_signal.ota_ack_info =
 			static_cast<uint32_t>(ACK_DEADC0DE);
-		memcpy(A2A_ota_ack_frame.data, &(boot_driver->return_ack),
+		memcpy(A2A_ota_ack_frame.data, &(boot_driver->return_ack->return_ack_ota_signal),
 		       sizeof(RETURN_ACK_OTA_SIGNAL_T));
 		boot_driver->return_adapter2adapter_ota_ack(&A2A_ota_ack_frame);
 		break;
@@ -826,7 +1000,13 @@ void BOOT::adapter2adapter_ota_process(const device *dev, can_frame *frame, void
 		break;
 	};
 	case CANFD_ID_AS_A2A_OTA_ACK: {
-		// get another adapter ack, and return ack to robot
+		// get another adapter ack, and return ack to robot.
+		// This is the receive callback of the device directly
+		// connected to the robot adapter. In one2two mode,
+		// it is used to receive the ack message from another
+		// adapter, make a judgment and return an ack to the robot
+
+		boot_driver->adapter2adapter_slave_adpater_ack_process(dev, frame);
 		break;
 	}
 	default: {
@@ -854,8 +1034,8 @@ void BOOT::register_ota_canfd_data_signal()
 	this->can_driver->add_can_filter(this->can_driver->get_canfd_2_dev(), &robot2adapter_filter,
 					 this->robot2adapter_ota_process, this);
 	this->can_driver->add_can_filter(this->can_driver->get_canfd_3_dev(),
-					 &adapter2adapter_filter, this->adapter2adapter_ota_process,
-					 this);
+					 &adapter2adapter_filter,
+					 this->adapter2adapter_ota_ack_process, this);
 }
 
 void BOOT::set_boot_checkpoint_flag_active()

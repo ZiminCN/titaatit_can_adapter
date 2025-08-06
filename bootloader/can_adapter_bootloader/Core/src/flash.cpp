@@ -83,9 +83,9 @@ void FLASH_MANAGER::init_new_factory_arg_data()
 	uint32_t boot_timestamp = static_cast<uint32_t>(APP_BUILD_TIMESTAMP);
 
 	this->factory_arg.magic_number = MAGIC_NUMBER;
-	this->factory_arg.is_boot_update_flag = 0x00U;
+	this->factory_arg.is_boot_update_flag = 0x01U;
 	this->factory_arg.is_app_update_flag = 0x00U;
-	this->factory_arg.boot_checkpoint_flag = 0x00U;
+	this->factory_arg.boot_checkpoint_flag = 0x01U;
 	this->factory_arg.app_checkpoint_flag = 0x00U;
 	this->factory_arg.arg_status = FACTORY_ARG_NOT_READY;
 

@@ -38,6 +38,7 @@ int main(void)
 	fsm_driver_handle->canfd_forward_protocol_handle->boot_driver_handle
 		->set_app_checkpoint_flag_active();
 
+	// TODO: need check is_boot_update_flag
 	if (fsm_driver_handle->canfd_forward_protocol_handle->boot_driver_handle
 		    ->get_boot_upgrade_flag() != false) {
 		fsm_driver_handle->canfd_forward_protocol_handle->boot_driver_handle

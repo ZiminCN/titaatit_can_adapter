@@ -27,8 +27,12 @@ std::unique_ptr<CANFD_FORWARD_PROTOCOL> CANFD_FORWARD_PROTOCOL::getInstance()
 	return std::move(CANFD_FORWARD_PROTOCOL::Instance);
 }
 
-// CAN2 PORT receive robot device data and forward send data to another forward
-// adapter device
+static bool stable_connection_flag = false;
+static int stable_heartbeat_cnt = 0;
+static int lost_heartbeat_cnt = 0;
+
+//! CAN2 port: robot   <->  adapter
+//! CAN3 port: adapter <->  adapter
 static struct can_frame canfd_data2adapter;
 std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 	std::make_unique<AdapterDataT>(AdapterDataT{
@@ -56,19 +60,19 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 				.flags = 0,
 			},
 		.bus_order_callback = data2adapter_bus_order_data_callback,
-		// filter master robot device data
-		.master_filter =
-			{
-				.id = 0x10A,
-				.mask = 0x7FE, // 0x10A~0x10B
-				.flags = 0,
-			},
-		.master_callback = data2adapter_master_data_callback,
 		// filter slave robot device data
-		.slave_filter =
+		.master_filter =
 			{
 				.id = 0x124,
 				.mask = 0x7FC, // 0x124~0x127
+				.flags = 0,
+			},
+		.master_callback = data2adapter_master_data_callback,
+		// filter master robot device data
+		.slave_filter =
+			{
+				.id = 0x10A,
+				.mask = 0x7FE, // 0x10A~0x10B
 				.flags = 0,
 			},
 		.slave_callback = data2adapter_slave_data_callback,
@@ -84,7 +88,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 		// filter about bootloader ota data(robot data to adapter)
 		.robot2adapter_boot_ota_filter =
 			{
-				.id = CANFD_ID_AS_R2A_OTA_SIGNAL,
+				.id = CANFD_ID_AS_R2A_OTA_SIGNAL, // 0x382, 0x383
 				.mask = 0x7FA,
 				.flags = 0,
 			},
@@ -102,8 +106,8 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2robot =
 		.is_enable = true,
 		.forward_data_cnt = 0x0U,
 		.loop_back_forward_data_cnt = 0x0U,
-		.master_data_forward_bus_can_id = 0x10AU,
-		.slave_data_forward_bus_can_id = 0x124U,
+		.master_data_forward_bus_can_id = 0x124U,
+		.slave_data_forward_bus_can_id = 0x10AU,
 		.bus_order_lock_order_data_forward_bus_can_id = 0x89U, // 0x89U
 		.bus_order_data_forward_bus_can_id = 0x170U,
 		.forward_bus_can_id_offset_max = 0x08U,
@@ -282,57 +286,12 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_callback(const device *
 	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
 }
 
-void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev, can_frame *frame,
-							       void *user_data)
-{
-	// if ((adapter_heart_beat->is_master_dev != false) ||
-	//     (adapter_heart_beat->is_slave_dev != false)) {
-
-	// 	if (!adapter_heart_beat->is_received_heartbeat) {
-	// 		return;
-	// 	}
-	// } else {
-	// 	// make sure reset
-	// 	adapter_heart_beat->is_received_heartbeat = false;
-	// 	adapter_heart_beat->is_master_dev = false;
-	// 	adapter_heart_beat->is_slave_dev = false;
-	// 	adapter_heart_beat->timeout_cnt = 0;
-	// }
-
-	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
-		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
-
-	const struct device *canfd_3_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
-
-	adapter_heart_beat->is_master_dev = true;
-	adapter_data2adapter->forward_data_cnt += 1;
-	if (adapter_data2adapter->forward_data_cnt >= UINT64_MAX) {
-		adapter_data2adapter->forward_data_cnt = 0;
-		adapter_data2adapter->loop_back_forward_data_cnt += 1;
-
-		// reset loop back
-		if (adapter_data2adapter->loop_back_forward_data_cnt >= UINT64_MAX) {
-			adapter_data2adapter->loop_back_forward_data_cnt = 0;
-		}
-	}
-
-	// forward_can_id = base_forward_can_id + offset
-	canfd_data2adapter.id = adapter_data2adapter->master_data_forward_bus_can_id +
-				(frame->id - adapter_data2adapter->master_filter.id);
-	canfd_data2adapter.dlc = frame->dlc;
-	canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
-
-	memcpy(canfd_data2adapter.data, frame->data, can_dlc_to_bytes(frame->dlc));
-	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
-}
-
 void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev, can_frame *frame,
 							      void *user_data)
 {
-
 	// if ((adapter_heart_beat->is_master_dev != false) ||
 	//     (adapter_heart_beat->is_slave_dev != false)) {
+
 	// 	if (!adapter_heart_beat->is_received_heartbeat) {
 	// 		return;
 	// 	}
@@ -362,9 +321,64 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev,
 		}
 	}
 
+	// make sure connect stable
+	if (stable_connection_flag != true) {
+		//	return;
+	}
+
 	// forward_can_id = base_forward_can_id + offset
 	canfd_data2adapter.id = adapter_data2adapter->slave_data_forward_bus_can_id +
 				(frame->id - adapter_data2adapter->slave_filter.id);
+	canfd_data2adapter.dlc = frame->dlc;
+	canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
+
+	memcpy(canfd_data2adapter.data, frame->data, can_dlc_to_bytes(frame->dlc));
+	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
+}
+
+void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev, can_frame *frame,
+							       void *user_data)
+{
+
+	// if ((adapter_heart_beat->is_master_dev != false) ||
+	//     (adapter_heart_beat->is_slave_dev != false)) {
+	// 	if (!adapter_heart_beat->is_received_heartbeat) {
+	// 		return;
+	// 	}
+	// } else {
+	// 	// make sure reset
+	// 	adapter_heart_beat->is_received_heartbeat = false;
+	// 	adapter_heart_beat->is_master_dev = false;
+	// 	adapter_heart_beat->is_slave_dev = false;
+	// 	adapter_heart_beat->timeout_cnt = 0;
+	// }
+
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	const struct device *canfd_3_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+
+	adapter_heart_beat->is_master_dev = true;
+	adapter_data2adapter->forward_data_cnt += 1;
+	if (adapter_data2adapter->forward_data_cnt >= UINT64_MAX) {
+		adapter_data2adapter->forward_data_cnt = 0;
+		adapter_data2adapter->loop_back_forward_data_cnt += 1;
+
+		// reset loop back
+		if (adapter_data2adapter->loop_back_forward_data_cnt >= UINT64_MAX) {
+			adapter_data2adapter->loop_back_forward_data_cnt = 0;
+		}
+	}
+
+	// make sure connect stable
+	if (stable_connection_flag != true) {
+		//	return;
+	}
+
+	// forward_can_id = base_forward_can_id + offset
+	canfd_data2adapter.id = adapter_data2adapter->master_data_forward_bus_can_id +
+				(frame->id - adapter_data2adapter->master_filter.id);
 	canfd_data2adapter.dlc = frame->dlc;
 	canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 
@@ -382,14 +396,15 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_data_callback(const device *dev,
 		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
 
 	// use if-else instead of switch-case
-	if ((frame->id & (0x4F8U)) == (adapter_data2adapter->master_data_forward_bus_can_id)) {
-		canfd_data2robot.id = adapter_data2robot->master_data_forward_bus_can_id +
-				      (frame->id - adapter_data2robot->forward_bus_filter.id);
-	} else if ((frame->id & (0x4F8U)) ==
-		   (adapter_data2adapter->slave_data_forward_bus_can_id)) {
+	if ((frame->id & (0x4F8U)) == (adapter_data2adapter->slave_data_forward_bus_can_id)) {
+
 		canfd_data2robot.id = adapter_data2robot->slave_data_forward_bus_can_id +
 				      (frame->id - adapter_data2robot->forward_bus_filter.id -
 				       adapter_data2robot->forward_bus_can_id_offset_max);
+	} else if ((frame->id & (0x4F8U)) ==
+		   (adapter_data2adapter->master_data_forward_bus_can_id)) {
+		canfd_data2robot.id = adapter_data2robot->master_data_forward_bus_can_id +
+				      (frame->id - adapter_data2robot->forward_bus_filter.id);
 	}
 
 	adapter_data2robot->forward_data_cnt += 1;
@@ -538,9 +553,6 @@ void CANFD_FORWARD_PROTOCOL::adapter2adapter_bootloader_ota_callback(const devic
 	}
 }
 
-static bool stable_connection_flag = false;
-static int stable_heartbeat_cnt = 0;
-static int lost_heartbeat_cnt = 0;
 void CANFD_FORWARD_PROTOCOL::data2robot_heartbeat_data_callback(const device *dev, can_frame *frame,
 								void *user_data)
 {
@@ -554,15 +566,17 @@ void CANFD_FORWARD_PROTOCOL::data2robot_heartbeat_data_callback(const device *de
 
 	if (stable_heartbeat_cnt >= 20) {
 		stable_connection_flag = true;
-		if ((frame->data[2] == 0x01U) && (frame->data[3] == 0x00U)) {
-			// this adapter is slave dev
-			adapter_heart_beat->is_master_dev = false;
-			adapter_heart_beat->is_slave_dev = true;
-		} else if ((frame->data[2] == 0x00U) && (frame->data[3] == 0x01U)) {
-			// otherwise, this adapter is master dev
-			adapter_heart_beat->is_master_dev = true;
-			adapter_heart_beat->is_slave_dev = false;
-		}
+		stable_heartbeat_cnt = 0x05U;
+	}
+
+	if ((frame->data[2] == 0x01U) && (frame->data[3] == 0x00U)) {
+		// this adapter is slave dev
+		adapter_heart_beat->is_master_dev = false;
+		adapter_heart_beat->is_slave_dev = true;
+	} else if ((frame->data[2] == 0x00U) && (frame->data[3] == 0x01U)) {
+		// otherwise, this adapter is master dev
+		adapter_heart_beat->is_master_dev = true;
+		adapter_heart_beat->is_slave_dev = false;
 	}
 }
 
@@ -658,7 +672,7 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 		canfd_data2heartbeat.id = 0x100U;
 	} else if ((adapter_heart_beat->is_slave_dev == true) &&
 		   (adapter_heart_beat->is_master_dev == false)) {
-		// master heartbeat ID: 0x101
+		// slave heartbeat ID: 0x101
 		adapter_heart_beat->is_received_heartbeat = true;
 		canfd_data2heartbeat.id = 0x101U;
 	} else {

@@ -81,12 +81,12 @@ class FSM
 	void fsm_set_frequency(uint32_t frequency);
 
 	static void fsm_init_entry(void *obj);
-	static void fsm_init_run(void *obj);
+	static enum smf_state_result fsm_init_run(void *obj);
 	static void fsm_init_exit(void *obj);
 	static void fsm_data_forward_process_entry(void *obj);
-	static void fsm_data_forward_process_run(void *obj);
+	static enum smf_state_result fsm_data_forward_process_run(void *obj);
 	static void fsm_sleep_entry(void *obj);
-	static void fsm_sleep_run(void *obj);
+	static enum smf_state_result fsm_sleep_run(void *obj);
 	static void fsm_sleep_exit(void *obj);
 	std::unique_ptr<CANFD_FORWARD_PROTOCOL> canfd_forward_protocol_handle =
 		CANFD_FORWARD_PROTOCOL::getInstance();

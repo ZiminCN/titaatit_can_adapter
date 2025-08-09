@@ -48,7 +48,7 @@ void FSM::fsm_init_entry(void *obj)
 	fsm_driver_handle->fsm_set_frequency(DEFAULT_RATE);
 }
 
-void FSM::fsm_init_run(void *obj)
+enum smf_state_result FSM::fsm_init_run(void *obj)
 {
 	ARG_UNUSED(obj);
 	LOG_INF("FSM init run");
@@ -56,6 +56,8 @@ void FSM::fsm_init_run(void *obj)
 	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
 	ARG_UNUSED(fsm_driver_handle);
 	fsm_driver_handle->set_fsm_state(fsm_work, FSM_DATA_FORWARD_PROCESS_STATE);
+
+	return SMF_EVENT_HANDLED;
 }
 
 void FSM::fsm_init_exit(void *obj)
@@ -70,7 +72,7 @@ void FSM::fsm_data_forward_process_entry(void *obj)
 	LOG_INF("FSM data forward process entry");
 }
 
-void FSM::fsm_data_forward_process_run(void *obj)
+enum smf_state_result FSM::fsm_data_forward_process_run(void *obj)
 {
 	ARG_UNUSED(obj);
 	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
@@ -84,6 +86,8 @@ void FSM::fsm_data_forward_process_run(void *obj)
 	} else if (ret == HeartbeatDetectedStatusE::HEART_BEAT_LOST) {
 		// fsm_driver_handle->mosfet_control_handle->set_48v_mosfet_state(GPIO_OUTPUT_INACTIVE);
 	}
+
+	return SMF_EVENT_HANDLED;
 }
 
 void FSM::fsm_sleep_entry(void *obj)
@@ -91,9 +95,11 @@ void FSM::fsm_sleep_entry(void *obj)
 	ARG_UNUSED(obj);
 }
 
-void FSM::fsm_sleep_run(void *obj)
+enum smf_state_result FSM::fsm_sleep_run(void *obj)
 {
 	ARG_UNUSED(obj);
+
+	return SMF_EVENT_HANDLED;
 }
 
 void FSM::fsm_sleep_exit(void *obj)

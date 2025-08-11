@@ -79,9 +79,9 @@ bool CAN::init()
 		LOG_INF("CANFD device 3 is not ready");
 	}
 
-	can_set_mode(canfd_1_dev, CAN_MODE_FD);
-	can_set_mode(canfd_2_dev, CAN_MODE_FD);
-	can_set_mode(canfd_3_dev, CAN_MODE_FD);
+	can_set_mode(canfd_1_dev, CAN_MODE_FD | CAN_MODE_ONE_SHOT);
+	can_set_mode(canfd_2_dev, CAN_MODE_FD | CAN_MODE_ONE_SHOT);
+	can_set_mode(canfd_3_dev, CAN_MODE_FD | CAN_MODE_ONE_SHOT);
 
 	can_set_state_change_callback(canfd_1_dev, this->auto_recovery_can_bus_status_callback,
 				      NULL);
@@ -238,7 +238,10 @@ void CAN::auto_recovery_can_bus_status_callback(const struct device *dev, enum c
 
 	if (state == CAN_STATE_BUS_OFF) {
 
-		if (can_recover(dev, K_MSEC(100)) != 0) {
+		// if (can_recover(dev, K_MSEC(100)) != 0) {
+		// 	LOG_INF("Recovery timed out\n");
+		// }
+		if (can_recover(dev, K_FOREVER) != 0) {
 			LOG_INF("Recovery timed out\n");
 		}
 	}

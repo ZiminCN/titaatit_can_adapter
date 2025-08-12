@@ -79,9 +79,9 @@ bool CAN::init()
 		LOG_INF("CANFD device 3 is not ready");
 	}
 
-	can_set_mode(canfd_1_dev, CAN_MODE_FD | CAN_MODE_ONE_SHOT);
-	can_set_mode(canfd_2_dev, CAN_MODE_FD | CAN_MODE_ONE_SHOT);
-	can_set_mode(canfd_3_dev, CAN_MODE_FD | CAN_MODE_ONE_SHOT);
+	can_set_mode(canfd_1_dev, CAN_MODE_FD);
+	can_set_mode(canfd_2_dev, CAN_MODE_FD);
+	can_set_mode(canfd_3_dev, CAN_MODE_FD);
 
 	can_set_state_change_callback(canfd_1_dev, this->auto_recovery_can_bus_status_callback,
 				      NULL);
@@ -109,6 +109,23 @@ bool CAN::init()
 	}
 
 	LOG_INF("CANFD Driver Init Success!");
+
+	//! set no automatic retransmission
+	// refer ./Docs/CANFD_register.png and CANFD_register_func.png
+	// CCCR address = basic CANFD register address + CCCR offset
+	volatile uint32_t canfd_1_dev_CCCR = sys_read32(0x40006400 + 0x0018);
+	volatile uint32_t canfd_2_dev_CCCR = sys_read32(0x40006800 + 0x0018);
+	volatile uint32_t canfd_3_dev_CCCR = sys_read32(0x40006C00 + 0x0018);
+
+	// set DAR as enable
+	canfd_1_dev_CCCR = canfd_1_dev_CCCR | (1 << 6);
+	canfd_2_dev_CCCR = canfd_2_dev_CCCR | (1 << 6);
+	canfd_3_dev_CCCR = canfd_3_dev_CCCR | (1 << 6);
+
+	sys_write32(0x40006400 + 0x0018, canfd_1_dev_CCCR);
+	sys_write32(0x40006400 + 0x0018, canfd_2_dev_CCCR);
+	sys_write32(0x40006400 + 0x0018, canfd_3_dev_CCCR);
+
 	return true;
 }
 

@@ -70,6 +70,16 @@ typedef enum {
 	HEART_BEAT_LOST = 0x02,
 } HeartbeatDetectedStatusE;
 
+typedef struct {
+	k_tid_t tid;
+	bool loop_flag;
+} data2adapter_msgq_task_info_t;
+
+typedef struct {
+	k_tid_t tid;
+	bool loop_flag;
+} data2robot_msgq_task_info_t;
+
 class CANFD_FORWARD_PROTOCOL
 {
       public:
@@ -81,6 +91,8 @@ class CANFD_FORWARD_PROTOCOL
 	bool forward_protocol_init();
 	int test_canfd_send();
 	void heartbeat_pong_tong();
+	int data2adapter_msgq_transmit_create_task();
+	int data2robot_msgq_transmit_create_task();
 	HeartbeatDetectedStatusE is_detected_heartbeat();
 
 	std::unique_ptr<BOOT> boot_driver_handle = BOOT::getInstance();
@@ -89,10 +101,22 @@ class CANFD_FORWARD_PROTOCOL
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;
 	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
 	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
+	inline static bool data2adapter_current_get_msgq_switch =
+		false; // false: data2adapter_dev_msgq_buffer_A; true:
+		       // data2adapter_dev_msgq_buffer_B
+	inline static bool data2robot_current_get_msgq_switch =
+		false; // false: data2robot_dev_msgq_buffer_A; true: data2robot_dev_msgq_buffer_B
 
 	static std::unique_ptr<AdapterDataT> adapter_data2robot;
 	static std::unique_ptr<AdapterDataT> adapter_data2adapter;
 	static std::unique_ptr<AdapterHeartBeatT> adapter_heart_beat;
+
+	static std::unique_ptr<data2adapter_msgq_task_info_t> data2adapter_msgq_task_info;
+	static std::unique_ptr<data2robot_msgq_task_info_t> data2robot_msgq_task_info;
+
+	static void data2adapter_msgq_callback(const device *dev, can_frame *frame,
+					       void *user_data);
+	static void data2robot_msgq_callback(const device *dev, can_frame *frame, void *user_data);
 	static void data2adapter_bus_order_lock_order_data_callback(const device *dev,
 								    can_frame *frame,
 								    void *user_data);
@@ -112,6 +136,8 @@ class CANFD_FORWARD_PROTOCOL
 							  void *user_data);
 	static void adapter2adapter_bootloader_ota_callback(const device *dev, can_frame *frame,
 							    void *user_data);
+	static void data2adapter_msgq_transmit_task(void *arg1, void *arg2, void *arg3);
+	static void data2robot_msgq_transmit_task(void *arg1, void *arg2, void *arg3);
 };
 
 #endif // __CANFD_PROTOCOL_HPP__

@@ -19,6 +19,27 @@
 
 LOG_MODULE_REGISTER(canfd_forward_protocol, LOG_LEVEL_INF);
 
+#define DATA2ADAPTER_TX_TASK_PRIORITY 0
+#define DATA2ADAPTER_TX_STACK_SIZE    2048
+static struct k_thread data2adapter_tx_task_thread;
+K_THREAD_STACK_DEFINE(data2adapter_tx_task_stack, DATA2ADAPTER_TX_STACK_SIZE);
+
+#define DATA2ROBOT_TX_TASK_PRIORITY 0
+#define DATA2ROBOT_TX_STACK_SIZE    2048
+static struct k_thread data2robot_tx_task_thread;
+K_THREAD_STACK_DEFINE(data2robot_tx_task_stack, DATA2ROBOT_TX_STACK_SIZE);
+
+// double message buffer
+CAN_MSGQ_DEFINE(data2adapter_dev_msgq_buffer_A, 1024);
+CAN_MSGQ_DEFINE(data2adapter_dev_msgq_buffer_B, 1024);
+CAN_MSGQ_DEFINE(data2robot_dev_msgq_buffer_A, 1024);
+CAN_MSGQ_DEFINE(data2robot_dev_msgq_buffer_B, 1024);
+
+std::unique_ptr<data2adapter_msgq_task_info_t> data2adapter_msgq_task_info =
+	std::make_unique<data2adapter_msgq_task_info_t>();
+std::unique_ptr<data2robot_msgq_task_info_t> data2robot_msgq_task_info =
+	std::make_unique<data2robot_msgq_task_info_t>();
+
 std::unique_ptr<CANFD_FORWARD_PROTOCOL> CANFD_FORWARD_PROTOCOL::Instance =
 	std::make_unique<CANFD_FORWARD_PROTOCOL>();
 
@@ -225,6 +246,70 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 		canfd_3_dev, &adapter_data2robot->adapter2adapter_boot_ota_filter,
 		adapter_data2robot->adapter2adapter_boot_ota_callback, this);
 	return true;
+}
+
+void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_callback(const device *dev, can_frame *frame,
+							void *user_data)
+{
+	ARG_UNUSED(dev);
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	// The two buffers can only be switched between being full and empty. If data cannot be
+	// written, it will be discarded.
+
+	// Determine which message queue is currently being read.
+	if (!forward_driver_handle->data2adapter_current_get_msgq_switch) {
+		if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_A)) {
+			// data2adapter_dev_msgq_buffer_B queue used index is zero or not
+			if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_B)) {
+				k_msgq_put(&data2adapter_dev_msgq_buffer_B, frame, K_MSEC(2));
+			}
+		} else {
+			k_msgq_put(&data2adapter_dev_msgq_buffer_A, frame, K_MSEC(2));
+		}
+	} else if (forward_driver_handle->data2adapter_current_get_msgq_switch) {
+		if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_B)) {
+			// data2adapter_dev_msgq_buffer_A queue used index is zero or not
+			if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_A)) {
+				k_msgq_put(&data2adapter_dev_msgq_buffer_A, frame, K_MSEC(2));
+			}
+		} else {
+			k_msgq_put(&data2adapter_dev_msgq_buffer_B, frame, K_MSEC(2));
+		}
+	}
+}
+
+void CANFD_FORWARD_PROTOCOL::data2robot_msgq_callback(const device *dev, can_frame *frame,
+						      void *user_data)
+{
+	ARG_UNUSED(dev);
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	// The two buffers can only be switched between being full and empty. If data cannot be
+	// written, it will be discarded.
+
+	// Determine which message queue is currently being read.
+	if (!forward_driver_handle->data2robot_current_get_msgq_switch) {
+		if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_A)) {
+			// data2robot_dev_msgq_buffer_B queue used index is zero or not
+			if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_B)) {
+				k_msgq_put(&data2robot_dev_msgq_buffer_B, frame, K_MSEC(2));
+			}
+		} else {
+			k_msgq_put(&data2adapter_dev_msgq_buffer_A, frame, K_MSEC(2));
+		}
+	} else if (forward_driver_handle->data2robot_current_get_msgq_switch) {
+		if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_B)) {
+			// data2robot_dev_msgq_buffer_A queue used index is zero or not
+			if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_A)) {
+				k_msgq_put(&data2robot_dev_msgq_buffer_A, frame, K_MSEC(2));
+			}
+		} else {
+			k_msgq_put(&data2robot_dev_msgq_buffer_B, frame, K_MSEC(2));
+		}
+	}
 }
 
 void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_lock_order_data_callback(const device *dev,
@@ -712,4 +797,73 @@ HeartbeatDetectedStatusE CANFD_FORWARD_PROTOCOL::is_detected_heartbeat()
 	return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // Default return value
 							       // if no condition is
 							       // met
+}
+
+void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_transmit_task(void *arg1, void *arg2, void *arg3)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle = static_cast<CANFD_FORWARD_PROTOCOL *>(arg1);
+
+	while (1) {
+		// Determine which buffer is currently in use
+		if (!forward_driver_handle->data2adapter_current_get_msgq_switch) {
+			if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_A)) {
+				forward_driver_handle->data2adapter_current_get_msgq_switch = true;
+			}
+		} else {
+			if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_B)) {
+				forward_driver_handle->data2adapter_current_get_msgq_switch = false;
+			}
+		}
+
+		if (!forward_driver_handle->data2adapter_current_get_msgq_switch) {
+
+		} else {
+		}
+	}
+}
+
+int CANFD_FORWARD_PROTOCOL::data2adapter_msgq_transmit_create_task()
+{
+	// create task
+	this->data2adapter_msgq_task_info->loop_flag = true;
+
+	this->data2adapter_msgq_task_info->tid =
+		k_thread_create(&data2adapter_tx_task_thread, data2adapter_tx_task_stack,
+				K_THREAD_STACK_SIZEOF(data2adapter_tx_task_stack),
+				this->data2adapter_msgq_transmit_task, this, NULL, NULL,
+				K_PRIO_COOP(DATA2ADAPTER_TX_TASK_PRIORITY), 0, K_NO_WAIT);
+
+	if (!this->data2adapter_msgq_task_info->tid) {
+		return -ENOMEM;
+	}
+	k_thread_name_set(this->data2adapter_msgq_task_info->tid, "Data2AdapterTxTask");
+	k_thread_start(&data2adapter_tx_task_thread);
+
+	return 0;
+}
+
+void CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_task(void *arg1, void *arg2, void *arg3)
+{
+	// CANFD_FORWARD_PROTOCOL *forward_driver_handle = static_cast<CANFD_FORWARD_PROTOCOL
+	// *>(arg1);
+}
+
+int CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_create_task()
+{
+	// create task
+	this->data2robot_msgq_task_info->loop_flag = true;
+
+	this->data2robot_msgq_task_info->tid =
+		k_thread_create(&data2robot_tx_task_thread, data2robot_tx_task_stack,
+				K_THREAD_STACK_SIZEOF(data2robot_tx_task_stack),
+				this->data2robot_msgq_transmit_task, this, NULL, NULL,
+				K_PRIO_COOP(DATA2ROBOT_TX_TASK_PRIORITY), 0, K_NO_WAIT);
+
+	if (!this->data2robot_msgq_task_info->tid) {
+		return -ENOMEM;
+	}
+	k_thread_name_set(this->data2robot_msgq_task_info->tid, "Data2RobotTxTask");
+	k_thread_start(&data2robot_tx_task_thread);
+
+	return 0;
 }

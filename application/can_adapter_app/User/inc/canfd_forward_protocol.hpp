@@ -103,13 +103,6 @@ class CANFD_FORWARD_PROTOCOL
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;
 	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
 	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
-	// false: data2adapter_dev_msgq_buffer_A; true: data2adapter_dev_msgq_buffer_B
-	inline static bool data2adapter_current_get_msgq_switch = false;
-	// false: data2robot_dev_msgq_buffer_A; true: data2robot_dev_msgq_buffer_B
-	inline static bool data2robot_current_get_msgq_switch = false;
-	// false: data2adapter_dev_msgq_buffer_A; true: data2adapter_dev_msgq_buffer_B
-	inline static bool data2adapter_current_put_msgq_switch = false;
-	inline static bool data2robot_current_put_msgq_switch = false;
 
 	static std::unique_ptr<AdapterDataT> adapter_data2robot;
 	static std::unique_ptr<AdapterDataT> adapter_data2adapter;

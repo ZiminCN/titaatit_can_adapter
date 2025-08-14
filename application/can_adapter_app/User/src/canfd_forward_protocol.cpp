@@ -30,10 +30,8 @@ static struct k_thread data2robot_tx_task_thread;
 K_THREAD_STACK_DEFINE(data2robot_tx_task_stack, DATA2ROBOT_TX_STACK_SIZE);
 
 // double message buffer
-CAN_MSGQ_DEFINE(data2adapter_dev_msgq_buffer_A, 128);
-CAN_MSGQ_DEFINE(data2adapter_dev_msgq_buffer_B, 128);
-CAN_MSGQ_DEFINE(data2robot_dev_msgq_buffer_A, 128);
-CAN_MSGQ_DEFINE(data2robot_dev_msgq_buffer_B, 128);
+CAN_MSGQ_DEFINE(data2adapter_dev_msgq_buffer, 256);
+CAN_MSGQ_DEFINE(data2robot_dev_msgq_buffer, 256);
 
 std::unique_ptr<data2adapter_msgq_task_info_t> CANFD_FORWARD_PROTOCOL::data2adapter_msgq_task_info =
 	std::make_unique<data2adapter_msgq_task_info_t>();
@@ -202,118 +200,48 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 	// add filter for order lock data
 	// 0x89
 	i_ret = this->can_driver_handle->add_can_filter(
-		canfd_2_dev, &adapter_data2adapter->bus_order_lock_order_filter,
-		adapter_data2adapter->bus_order_lock_order_callback, this);
+		canfd_2_dev, &data2adapter_dev_msgq_buffer,
+		&adapter_data2adapter->bus_order_lock_order_filter, this);
 	// add filter for master robot device, forward data to adapter
 	// 0x10A~0x10B
-	i_ret = this->can_driver_handle->add_can_filter(
-		canfd_2_dev, &adapter_data2adapter->master_filter,
-		adapter_data2adapter->master_callback, this);
+	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
+							&adapter_data2adapter->master_filter, this);
 	// add filter for slave robot device, forward data to adapter
 	// 0x124~0x127
-	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev,
-							&adapter_data2adapter->slave_filter,
-							adapter_data2adapter->slave_callback, this);
+	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
+							&adapter_data2adapter->slave_filter, this);
 	// add filter for order data
 	// 0x170
-	i_ret = this->can_driver_handle->add_can_filter(
-		canfd_2_dev, &adapter_data2adapter->bus_order_filter,
-		adapter_data2adapter->bus_order_callback, this);
+	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
+							&adapter_data2adapter->bus_order_filter,
+							this);
 	// add filter for bootloader data
 	// 0x382, 0x383, 0x384, 0x385
 	i_ret = this->can_driver_handle->add_can_filter(
-		canfd_2_dev, &adapter_data2adapter->robot2adapter_boot_ota_filter,
-		adapter_data2adapter->robot2adapter_boot_ota_callback, this);
+		canfd_2_dev, &data2adapter_dev_msgq_buffer,
+		&adapter_data2adapter->robot2adapter_boot_ota_filter, this);
 
 	// add filter for forward bus
 	// 0x10~0x1F
-	i_ret = this->can_driver_handle->add_can_filter(
-		canfd_3_dev, &adapter_data2robot->forward_bus_filter,
-		adapter_data2robot->forward_bus_callback, this);
+	i_ret = this->can_driver_handle->add_can_filter(canfd_3_dev, &data2robot_dev_msgq_buffer,
+							&adapter_data2robot->forward_bus_filter,
+							this);
 	// add filter for forward order bus
 	// 0x20~0x2F
 	i_ret = this->can_driver_handle->add_can_filter(
-		canfd_3_dev, &adapter_data2robot->forward_bus_order_filter,
-		adapter_data2robot->forward_bus_order_callback, this);
+		canfd_3_dev, &data2robot_dev_msgq_buffer,
+		&adapter_data2robot->forward_bus_order_filter, this);
 	// add filter for heartbeat bus
 	// 0x100
-	i_ret = this->can_driver_handle->add_can_filter(
-		canfd_3_dev, &adapter_data2robot->heartbeat_filter,
-		adapter_data2robot->heartbeat_callback, this);
+	i_ret = this->can_driver_handle->add_can_filter(canfd_3_dev, &data2robot_dev_msgq_buffer,
+							&adapter_data2robot->heartbeat_filter,
+							this);
 	// add filter for bootloader data
 	// 0x202, 0x203, 0x204, 0x205
 	i_ret = this->can_driver_handle->add_can_filter(
-		canfd_3_dev, &adapter_data2robot->adapter2adapter_boot_ota_filter,
-		adapter_data2robot->adapter2adapter_boot_ota_callback, this);
+		canfd_3_dev, &data2robot_dev_msgq_buffer,
+		&adapter_data2robot->adapter2adapter_boot_ota_filter, this);
 	return true;
-}
-
-void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_put_callback(const device *dev, can_frame *frame,
-							    void *user_data)
-{
-	ARG_UNUSED(dev);
-	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
-		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
-
-	// The two buffers can only be switched between being full and empty. If data
-	// cannot be written, it will be discarded.
-
-	// Determine which message queue is currently being read.
-	if (!forward_driver_handle->data2adapter_current_put_msgq_switch) {
-		if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_A)) {
-			// data2adapter_dev_msgq_buffer_B queue used index is zero or not
-			if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_B)) {
-				forward_driver_handle->data2adapter_current_put_msgq_switch = true;
-				k_msgq_put(&data2adapter_dev_msgq_buffer_B, frame, K_MSEC(2));
-			}
-		} else {
-			k_msgq_put(&data2adapter_dev_msgq_buffer_A, frame, K_MSEC(2));
-		}
-	} else {
-		if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_B)) {
-			// data2adapter_dev_msgq_buffer_A queue used index is zero or not
-			if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_A)) {
-				forward_driver_handle->data2adapter_current_put_msgq_switch = false;
-				k_msgq_put(&data2adapter_dev_msgq_buffer_A, frame, K_MSEC(2));
-			}
-		} else {
-			k_msgq_put(&data2adapter_dev_msgq_buffer_B, frame, K_MSEC(2));
-		}
-	}
-}
-
-void CANFD_FORWARD_PROTOCOL::data2robot_msgq_put_callback(const device *dev, can_frame *frame,
-							  void *user_data)
-{
-	ARG_UNUSED(dev);
-	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
-		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
-
-	// The two buffers can only be switched between being full and empty. If data
-	// cannot be written, it will be discarded.
-
-	// Determine which message queue is currently being read.
-	if (!forward_driver_handle->data2robot_current_put_msgq_switch) {
-		if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_A)) {
-			// data2robot_dev_msgq_buffer_B queue used index is zero or not
-			if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_B)) {
-				forward_driver_handle->data2robot_current_put_msgq_switch = true;
-				k_msgq_put(&data2robot_dev_msgq_buffer_B, frame, K_MSEC(2));
-			}
-		} else {
-			k_msgq_put(&data2robot_dev_msgq_buffer_A, frame, K_MSEC(2));
-		}
-	} else {
-		if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_B)) {
-			// data2robot_dev_msgq_buffer_A queue used index is zero or not
-			if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_A)) {
-				forward_driver_handle->data2robot_current_put_msgq_switch = false;
-				k_msgq_put(&data2robot_dev_msgq_buffer_A, frame, K_MSEC(2));
-			}
-		} else {
-			k_msgq_put(&data2robot_dev_msgq_buffer_B, frame, K_MSEC(2));
-		}
-	}
 }
 
 void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_lock_order_data_callback(const device *dev,
@@ -852,50 +780,11 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_transmit_task(void *arg1, void *a
 		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
 	while (1) {
-		if (!forward_driver_handle->data2adapter_current_get_msgq_switch) {
-			if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_A)) {
-				if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_B)) {
-					forward_driver_handle
-						->data2adapter_current_get_msgq_switch = true;
-					if (k_msgq_get(&data2adapter_dev_msgq_buffer_B, &frame,
-						       K_FOREVER) == 0) {
-						// do callback
-						forward_driver_handle
-							->data2adapter_msgq_transmit_callback(
-								canfd_3_dev, &frame,
-								forward_driver_handle);
-					}
-				}
-			} else {
-				if (k_msgq_get(&data2adapter_dev_msgq_buffer_A, &frame,
-					       K_FOREVER) == 0) {
-					// do callback
-					forward_driver_handle->data2adapter_msgq_transmit_callback(
-						canfd_3_dev, &frame, forward_driver_handle);
-				}
-			}
-		} else {
-			if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_B)) {
-				if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_B)) {
-					forward_driver_handle
-						->data2adapter_current_get_msgq_switch = false;
-					if (k_msgq_get(&data2adapter_dev_msgq_buffer_A, &frame,
-						       K_FOREVER) == 0) {
-						// do callback
-						forward_driver_handle
-							->data2adapter_msgq_transmit_callback(
-								canfd_3_dev, &frame,
-								forward_driver_handle);
-					}
-				}
-			} else {
-				if (k_msgq_get(&data2adapter_dev_msgq_buffer_B, &frame,
-					       K_FOREVER) == 0) {
-					// do callback
-					forward_driver_handle->data2adapter_msgq_transmit_callback(
-						canfd_3_dev, &frame, forward_driver_handle);
-				}
-			}
+		LOG_INF("data2adapter_msgq_transmit_task");
+		if (k_msgq_get(&data2adapter_dev_msgq_buffer, &frame, K_FOREVER) == 0) {
+			// do callback
+			forward_driver_handle->data2adapter_msgq_transmit_callback(
+				canfd_3_dev, &frame, forward_driver_handle);
 		}
 	}
 }
@@ -997,50 +886,11 @@ void CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_task(void *arg1, void *arg
 		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
 
 	while (1) {
-		if (!forward_driver_handle->data2robot_current_get_msgq_switch) {
-			if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_A)) {
-				if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_B)) {
-					forward_driver_handle->data2robot_current_get_msgq_switch =
-						true;
-					if (k_msgq_get(&data2robot_dev_msgq_buffer_B, &frame,
-						       K_FOREVER) == 0) {
-						// do callback
-						forward_driver_handle
-							->data2robot_msgq_transmit_callback(
-								canfd_2_dev, &frame,
-								forward_driver_handle);
-					}
-				}
-			} else {
-				if (k_msgq_get(&data2robot_dev_msgq_buffer_A, &frame, K_FOREVER) ==
-				    0) {
-					// do callback
-					forward_driver_handle->data2robot_msgq_transmit_callback(
-						canfd_2_dev, &frame, forward_driver_handle);
-				}
-			}
-		} else {
-			if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_B)) {
-				if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_B)) {
-					forward_driver_handle
-						->data2adapter_current_get_msgq_switch = false;
-					if (k_msgq_get(&data2robot_dev_msgq_buffer_A, &frame,
-						       K_FOREVER) == 0) {
-						// do callback
-						forward_driver_handle
-							->data2robot_msgq_transmit_callback(
-								canfd_2_dev, &frame,
-								forward_driver_handle);
-					}
-				}
-			} else {
-				if (k_msgq_get(&data2robot_dev_msgq_buffer_B, &frame, K_FOREVER) ==
-				    0) {
-					// do callback
-					forward_driver_handle->data2robot_msgq_transmit_callback(
-						canfd_2_dev, &frame, forward_driver_handle);
-				}
-			}
+		LOG_INF("data2robot_msgq_transmit_task");
+		if (k_msgq_get(&data2robot_dev_msgq_buffer, &frame, K_FOREVER) == 0) {
+			// do callback
+			forward_driver_handle->data2robot_msgq_transmit_callback(
+				canfd_2_dev, &frame, forward_driver_handle);
 		}
 	}
 }

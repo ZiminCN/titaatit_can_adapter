@@ -178,7 +178,8 @@ int CAN::send_can_msg(const struct device *dev, const struct can_frame *frame)
 	return can_send(dev, frame, K_NO_WAIT, any_tx_callback, nullptr);
 }
 
-int CAN::add_can_filter(const struct device *dev, k_msgq *msgq, const struct can_filter *filter)
+int CAN::add_can_filter(const struct device *dev, k_msgq *msgq, const struct can_filter *filter,
+			void *user_data)
 {
 	uint8_t filter_id = 0x00;
 	filter_id = can_add_rx_filter_msgq(dev, msgq, filter);

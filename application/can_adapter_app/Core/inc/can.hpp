@@ -47,7 +47,8 @@ class CAN
 	bool init();
 	static void any_tx_callback(const struct device *dev, int error, void *user_data);
 	int send_can_msg(const struct device *dev, const struct can_frame *frame);
-	int add_can_filter(const struct device *dev, k_msgq *msgq, const struct can_filter *filter);
+	int add_can_filter(const struct device *dev, k_msgq *msgq, const struct can_filter *filter,
+			   void *user_data);
 	int add_can_filter(const struct device *dev, const struct can_filter *filter,
 			   can_rx_callback_t callback, void *user_data);
 	can_bus_status *get_can_bus_status(const struct device *dev);

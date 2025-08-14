@@ -30,14 +30,14 @@ static struct k_thread data2robot_tx_task_thread;
 K_THREAD_STACK_DEFINE(data2robot_tx_task_stack, DATA2ROBOT_TX_STACK_SIZE);
 
 // double message buffer
-CAN_MSGQ_DEFINE(data2adapter_dev_msgq_buffer_A, 1024);
-CAN_MSGQ_DEFINE(data2adapter_dev_msgq_buffer_B, 1024);
-CAN_MSGQ_DEFINE(data2robot_dev_msgq_buffer_A, 1024);
-CAN_MSGQ_DEFINE(data2robot_dev_msgq_buffer_B, 1024);
+CAN_MSGQ_DEFINE(data2adapter_dev_msgq_buffer_A, 128);
+CAN_MSGQ_DEFINE(data2adapter_dev_msgq_buffer_B, 128);
+CAN_MSGQ_DEFINE(data2robot_dev_msgq_buffer_A, 128);
+CAN_MSGQ_DEFINE(data2robot_dev_msgq_buffer_B, 128);
 
-std::unique_ptr<data2adapter_msgq_task_info_t> data2adapter_msgq_task_info =
+std::unique_ptr<data2adapter_msgq_task_info_t> CANFD_FORWARD_PROTOCOL::data2adapter_msgq_task_info =
 	std::make_unique<data2adapter_msgq_task_info_t>();
-std::unique_ptr<data2robot_msgq_task_info_t> data2robot_msgq_task_info =
+std::unique_ptr<data2robot_msgq_task_info_t> CANFD_FORWARD_PROTOCOL::data2robot_msgq_task_info =
 	std::make_unique<data2robot_msgq_task_info_t>();
 
 std::unique_ptr<CANFD_FORWARD_PROTOCOL> CANFD_FORWARD_PROTOCOL::Instance =
@@ -248,30 +248,32 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 	return true;
 }
 
-void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_callback(const device *dev, can_frame *frame,
-							void *user_data)
+void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_put_callback(const device *dev, can_frame *frame,
+							    void *user_data)
 {
 	ARG_UNUSED(dev);
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	// The two buffers can only be switched between being full and empty. If data cannot be
-	// written, it will be discarded.
+	// The two buffers can only be switched between being full and empty. If data
+	// cannot be written, it will be discarded.
 
 	// Determine which message queue is currently being read.
-	if (!forward_driver_handle->data2adapter_current_get_msgq_switch) {
+	if (!forward_driver_handle->data2adapter_current_put_msgq_switch) {
 		if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_A)) {
 			// data2adapter_dev_msgq_buffer_B queue used index is zero or not
 			if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_B)) {
+				forward_driver_handle->data2adapter_current_put_msgq_switch = true;
 				k_msgq_put(&data2adapter_dev_msgq_buffer_B, frame, K_MSEC(2));
 			}
 		} else {
 			k_msgq_put(&data2adapter_dev_msgq_buffer_A, frame, K_MSEC(2));
 		}
-	} else if (forward_driver_handle->data2adapter_current_get_msgq_switch) {
+	} else {
 		if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_B)) {
 			// data2adapter_dev_msgq_buffer_A queue used index is zero or not
 			if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_A)) {
+				forward_driver_handle->data2adapter_current_put_msgq_switch = false;
 				k_msgq_put(&data2adapter_dev_msgq_buffer_A, frame, K_MSEC(2));
 			}
 		} else {
@@ -280,30 +282,32 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_callback(const device *dev, can_f
 	}
 }
 
-void CANFD_FORWARD_PROTOCOL::data2robot_msgq_callback(const device *dev, can_frame *frame,
-						      void *user_data)
+void CANFD_FORWARD_PROTOCOL::data2robot_msgq_put_callback(const device *dev, can_frame *frame,
+							  void *user_data)
 {
 	ARG_UNUSED(dev);
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	// The two buffers can only be switched between being full and empty. If data cannot be
-	// written, it will be discarded.
+	// The two buffers can only be switched between being full and empty. If data
+	// cannot be written, it will be discarded.
 
 	// Determine which message queue is currently being read.
-	if (!forward_driver_handle->data2robot_current_get_msgq_switch) {
+	if (!forward_driver_handle->data2robot_current_put_msgq_switch) {
 		if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_A)) {
 			// data2robot_dev_msgq_buffer_B queue used index is zero or not
 			if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_B)) {
+				forward_driver_handle->data2robot_current_put_msgq_switch = true;
 				k_msgq_put(&data2robot_dev_msgq_buffer_B, frame, K_MSEC(2));
 			}
 		} else {
-			k_msgq_put(&data2adapter_dev_msgq_buffer_A, frame, K_MSEC(2));
+			k_msgq_put(&data2robot_dev_msgq_buffer_A, frame, K_MSEC(2));
 		}
-	} else if (forward_driver_handle->data2robot_current_get_msgq_switch) {
+	} else {
 		if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_B)) {
 			// data2robot_dev_msgq_buffer_A queue used index is zero or not
 			if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_A)) {
+				forward_driver_handle->data2robot_current_put_msgq_switch = false;
 				k_msgq_put(&data2robot_dev_msgq_buffer_A, frame, K_MSEC(2));
 			}
 		} else {
@@ -319,8 +323,8 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_lock_order_data_callback(con
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	const struct device *canfd_3_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+	// const struct device *canfd_3_dev =
+	// 	forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
 	adapter_data2adapter->forward_data_cnt += 1;
 	if (adapter_data2adapter->forward_data_cnt >= UINT64_MAX) {
@@ -339,7 +343,7 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_lock_order_data_callback(con
 	canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 
 	memcpy(canfd_data2adapter.data, frame->data, can_dlc_to_bytes(frame->dlc));
-	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
+	forward_driver_handle->can_driver_handle->send_can_msg(dev, &canfd_data2adapter);
 }
 
 void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_callback(const device *dev,
@@ -348,8 +352,8 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_callback(const device *
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	const struct device *canfd_3_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+	//   const struct device *canfd_3_dev =
+	//       forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
 	adapter_data2adapter->forward_data_cnt += 1;
 	if (adapter_data2adapter->forward_data_cnt >= UINT64_MAX) {
@@ -368,7 +372,7 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_callback(const device *
 	canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 
 	memcpy(canfd_data2adapter.data, frame->data, can_dlc_to_bytes(frame->dlc));
-	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
+	forward_driver_handle->can_driver_handle->send_can_msg(dev, &canfd_data2adapter);
 }
 
 void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev, can_frame *frame,
@@ -391,8 +395,8 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev,
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	const struct device *canfd_3_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+	//   const struct device *canfd_3_dev =
+	//       forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
 	adapter_heart_beat->is_slave_dev = true;
 	adapter_data2adapter->forward_data_cnt += 1;
@@ -418,7 +422,7 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev,
 	canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 
 	memcpy(canfd_data2adapter.data, frame->data, can_dlc_to_bytes(frame->dlc));
-	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
+	forward_driver_handle->can_driver_handle->send_can_msg(dev, &canfd_data2adapter);
 }
 
 void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev, can_frame *frame,
@@ -441,8 +445,8 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	const struct device *canfd_3_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+	//   const struct device *canfd_3_dev =
+	//       forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
 	adapter_heart_beat->is_master_dev = true;
 	adapter_data2adapter->forward_data_cnt += 1;
@@ -468,7 +472,7 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev
 	canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 
 	memcpy(canfd_data2adapter.data, frame->data, can_dlc_to_bytes(frame->dlc));
-	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
+	forward_driver_handle->can_driver_handle->send_can_msg(dev, &canfd_data2adapter);
 }
 
 void CANFD_FORWARD_PROTOCOL::data2robot_forward_data_callback(const device *dev, can_frame *frame,
@@ -477,8 +481,8 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_data_callback(const device *dev,
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	const struct device *canfd_2_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+	//   const struct device *canfd_2_dev =
+	//       forward_driver_handle->can_driver_handle->get_canfd_2_dev();
 
 	// use if-else instead of switch-case
 	if ((frame->id & (0x4F8U)) == (adapter_data2adapter->slave_data_forward_bus_can_id)) {
@@ -507,7 +511,7 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_data_callback(const device *dev,
 	canfd_data2robot.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 
 	memcpy(canfd_data2robot.data, frame->data, can_dlc_to_bytes(frame->dlc));
-	forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev, &canfd_data2robot);
+	forward_driver_handle->can_driver_handle->send_can_msg(dev, &canfd_data2robot);
 }
 
 void CANFD_FORWARD_PROTOCOL::data2robot_forward_bus_order_data_callback(const device *dev,
@@ -517,8 +521,8 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_bus_order_data_callback(const de
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	const struct device *canfd_2_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+	//   const struct device *canfd_2_dev =
+	//       forward_driver_handle->can_driver_handle->get_canfd_2_dev();
 
 	// use if-else instead of switch-case
 	if ((frame->id & (0x4F8U)) ==
@@ -545,7 +549,7 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_bus_order_data_callback(const de
 	canfd_data2robot.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 
 	memcpy(canfd_data2robot.data, frame->data, can_dlc_to_bytes(frame->dlc));
-	forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev, &canfd_data2robot);
+	forward_driver_handle->can_driver_handle->send_can_msg(dev, &canfd_data2robot);
 }
 
 void CANFD_FORWARD_PROTOCOL::robot2adapter_bootloader_ota_callback(const device *dev,
@@ -555,8 +559,8 @@ void CANFD_FORWARD_PROTOCOL::robot2adapter_bootloader_ota_callback(const device 
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	const struct device *canfd_2_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+	//   const struct device *canfd_2_dev =
+	//       forward_driver_handle->can_driver_handle->get_canfd_2_dev();
 
 	switch (frame->id) {
 	case CANFD_ID_AS_R2A_OTA_SIGNAL: {
@@ -582,7 +586,7 @@ void CANFD_FORWARD_PROTOCOL::robot2adapter_bootloader_ota_callback(const device 
 			       &(forward_driver_handle->boot_driver_handle->return_ack
 					 ->return_ack_ota_check_app),
 			       sizeof(RETURN_ACK_OTA_CHECK_APP_T));
-			forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev,
+			forward_driver_handle->can_driver_handle->send_can_msg(dev,
 									       &canfd_data2robot);
 		}
 		break;
@@ -600,8 +604,8 @@ void CANFD_FORWARD_PROTOCOL::adapter2adapter_bootloader_ota_callback(const devic
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
 		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
 
-	const struct device *canfd_3_dev =
-		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+	//   const struct device *canfd_3_dev =
+	//       forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
 	switch (frame->id) {
 	case CANFD_ID_AS_A2A_OTA_SIGNAL: {
@@ -627,7 +631,7 @@ void CANFD_FORWARD_PROTOCOL::adapter2adapter_bootloader_ota_callback(const devic
 			       &(forward_driver_handle->boot_driver_handle->return_ack
 					 ->return_ack_ota_check_app),
 			       sizeof(RETURN_ACK_OTA_CHECK_APP_T));
-			forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev,
+			forward_driver_handle->can_driver_handle->send_can_msg(dev,
 									       &canfd_data2adapter);
 		}
 		break;
@@ -641,6 +645,7 @@ void CANFD_FORWARD_PROTOCOL::adapter2adapter_bootloader_ota_callback(const devic
 void CANFD_FORWARD_PROTOCOL::data2robot_heartbeat_data_callback(const device *dev, can_frame *frame,
 								void *user_data)
 {
+	ARG_UNUSED(dev);
 	ARG_UNUSED(user_data);
 	adapter_heart_beat->is_received_heartbeat = true;
 	stable_heartbeat_cnt += 1;
@@ -799,25 +804,98 @@ HeartbeatDetectedStatusE CANFD_FORWARD_PROTOCOL::is_detected_heartbeat()
 							       // met
 }
 
+void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_transmit_callback(const device *dev,
+								 can_frame *frame, void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	switch (frame->id) {
+	case 0x89: {
+		forward_driver_handle->data2adapter_bus_order_lock_order_data_callback(dev, frame,
+										       this);
+		break;
+	}
+	case 0x10A:
+	case 0x10B: {
+		forward_driver_handle->data2adapter_slave_data_callback(dev, frame, this);
+		break;
+	}
+	case 0x124:
+	case 0x125:
+	case 0x126:
+	case 0x127: {
+		forward_driver_handle->data2adapter_master_data_callback(dev, frame, this);
+		break;
+	}
+	case 0x170: {
+		forward_driver_handle->data2adapter_bus_order_data_callback(dev, frame, this);
+		break;
+	}
+	case 0x382:
+	case 0x383: {
+		forward_driver_handle->robot2adapter_bootloader_ota_callback(dev, frame, this);
+		break;
+	}
+	default: {
+		break;
+	}
+	}
+}
+
 void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_transmit_task(void *arg1, void *arg2, void *arg3)
 {
 	CANFD_FORWARD_PROTOCOL *forward_driver_handle = static_cast<CANFD_FORWARD_PROTOCOL *>(arg1);
 
+	can_frame frame;
+	const struct device *canfd_3_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+
 	while (1) {
-		// Determine which buffer is currently in use
 		if (!forward_driver_handle->data2adapter_current_get_msgq_switch) {
 			if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_A)) {
-				forward_driver_handle->data2adapter_current_get_msgq_switch = true;
+				if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_B)) {
+					forward_driver_handle
+						->data2adapter_current_get_msgq_switch = true;
+					if (k_msgq_get(&data2adapter_dev_msgq_buffer_B, &frame,
+						       K_FOREVER) == 0) {
+						// do callback
+						forward_driver_handle
+							->data2adapter_msgq_transmit_callback(
+								canfd_3_dev, &frame,
+								forward_driver_handle);
+					}
+				}
+			} else {
+				if (k_msgq_get(&data2adapter_dev_msgq_buffer_A, &frame,
+					       K_FOREVER) == 0) {
+					// do callback
+					forward_driver_handle->data2adapter_msgq_transmit_callback(
+						canfd_3_dev, &frame, forward_driver_handle);
+				}
 			}
 		} else {
 			if (!k_msgq_num_free_get(&data2adapter_dev_msgq_buffer_B)) {
-				forward_driver_handle->data2adapter_current_get_msgq_switch = false;
+				if (!k_msgq_num_used_get(&data2adapter_dev_msgq_buffer_B)) {
+					forward_driver_handle
+						->data2adapter_current_get_msgq_switch = false;
+					if (k_msgq_get(&data2adapter_dev_msgq_buffer_A, &frame,
+						       K_FOREVER) == 0) {
+						// do callback
+						forward_driver_handle
+							->data2adapter_msgq_transmit_callback(
+								canfd_3_dev, &frame,
+								forward_driver_handle);
+					}
+				}
+			} else {
+				if (k_msgq_get(&data2adapter_dev_msgq_buffer_B, &frame,
+					       K_FOREVER) == 0) {
+					// do callback
+					forward_driver_handle->data2adapter_msgq_transmit_callback(
+						canfd_3_dev, &frame, forward_driver_handle);
+				}
 			}
-		}
-
-		if (!forward_driver_handle->data2adapter_current_get_msgq_switch) {
-
-		} else {
 		}
 	}
 }
@@ -842,10 +920,129 @@ int CANFD_FORWARD_PROTOCOL::data2adapter_msgq_transmit_create_task()
 	return 0;
 }
 
+void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_transmit_destory_task()
+{
+	k_thread_abort(this->data2adapter_msgq_task_info->tid);
+
+	k_thread_join(this->data2adapter_msgq_task_info->tid, K_FOREVER);
+}
+
+void CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_callback(const device *dev, can_frame *frame,
+							       void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	switch (frame->id) {
+	case 0x10:
+	case 0x11:
+	case 0x12:
+	case 0x13:
+	case 0x14:
+	case 0x15:
+	case 0x16:
+	case 0x17:
+	case 0x18:
+	case 0x19:
+	case 0x1A:
+	case 0x1B:
+	case 0x1C:
+	case 0x1D:
+	case 0x1E:
+	case 0x1F: {
+		forward_driver_handle->data2robot_forward_data_callback(dev, frame, this);
+		break;
+	}
+	case 0x20:
+	case 0x21:
+	case 0x22:
+	case 0x23:
+	case 0x24:
+	case 0x25:
+	case 0x26:
+	case 0x27:
+	case 0x28:
+	case 0x29:
+	case 0x2A:
+	case 0x2B:
+	case 0x2C:
+	case 0x2D:
+	case 0x2E:
+	case 0x2F: {
+		forward_driver_handle->data2robot_forward_bus_order_data_callback(dev, frame, this);
+		break;
+	}
+	case 0x100:
+	case 0x101: {
+		forward_driver_handle->data2robot_heartbeat_data_callback(dev, frame, this);
+		break;
+	}
+	case 0x202:
+	case 0x203: {
+		forward_driver_handle->adapter2adapter_bootloader_ota_callback(dev, frame, this);
+		break;
+	}
+	default: {
+		break;
+	}
+	}
+}
+
 void CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_task(void *arg1, void *arg2, void *arg3)
 {
-	// CANFD_FORWARD_PROTOCOL *forward_driver_handle = static_cast<CANFD_FORWARD_PROTOCOL
-	// *>(arg1);
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle = static_cast<CANFD_FORWARD_PROTOCOL *>(arg1);
+
+	can_frame frame;
+	const struct device *canfd_2_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+
+	while (1) {
+		if (!forward_driver_handle->data2robot_current_get_msgq_switch) {
+			if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_A)) {
+				if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_B)) {
+					forward_driver_handle->data2robot_current_get_msgq_switch =
+						true;
+					if (k_msgq_get(&data2robot_dev_msgq_buffer_B, &frame,
+						       K_FOREVER) == 0) {
+						// do callback
+						forward_driver_handle
+							->data2robot_msgq_transmit_callback(
+								canfd_2_dev, &frame,
+								forward_driver_handle);
+					}
+				}
+			} else {
+				if (k_msgq_get(&data2robot_dev_msgq_buffer_A, &frame, K_FOREVER) ==
+				    0) {
+					// do callback
+					forward_driver_handle->data2robot_msgq_transmit_callback(
+						canfd_2_dev, &frame, forward_driver_handle);
+				}
+			}
+		} else {
+			if (!k_msgq_num_free_get(&data2robot_dev_msgq_buffer_B)) {
+				if (!k_msgq_num_used_get(&data2robot_dev_msgq_buffer_B)) {
+					forward_driver_handle
+						->data2adapter_current_get_msgq_switch = false;
+					if (k_msgq_get(&data2robot_dev_msgq_buffer_A, &frame,
+						       K_FOREVER) == 0) {
+						// do callback
+						forward_driver_handle
+							->data2robot_msgq_transmit_callback(
+								canfd_2_dev, &frame,
+								forward_driver_handle);
+					}
+				}
+			} else {
+				if (k_msgq_get(&data2robot_dev_msgq_buffer_B, &frame, K_FOREVER) ==
+				    0) {
+					// do callback
+					forward_driver_handle->data2robot_msgq_transmit_callback(
+						canfd_2_dev, &frame, forward_driver_handle);
+				}
+			}
+		}
+	}
 }
 
 int CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_create_task()
@@ -866,4 +1063,11 @@ int CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_create_task()
 	k_thread_start(&data2robot_tx_task_thread);
 
 	return 0;
+}
+
+void CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_destory_task()
+{
+	k_thread_abort(this->data2robot_msgq_task_info->tid);
+
+	k_thread_join(this->data2robot_msgq_task_info->tid, K_FOREVER);
 }

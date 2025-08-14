@@ -85,6 +85,7 @@ class FSM
 	static void fsm_init_exit(void *obj);
 	static void fsm_data_forward_process_entry(void *obj);
 	static enum smf_state_result fsm_data_forward_process_run(void *obj);
+	static void fsm_data_forward_process_exit(void *obj);
 	static void fsm_sleep_entry(void *obj);
 	static enum smf_state_result fsm_sleep_run(void *obj);
 	static void fsm_sleep_exit(void *obj);

@@ -93,6 +93,8 @@ class CANFD_FORWARD_PROTOCOL
 	void heartbeat_pong_tong();
 	int data2adapter_msgq_transmit_create_task();
 	int data2robot_msgq_transmit_create_task();
+	void data2adapter_msgq_transmit_destory_task();
+	void data2robot_msgq_transmit_destory_task();
 	HeartbeatDetectedStatusE is_detected_heartbeat();
 
 	std::unique_ptr<BOOT> boot_driver_handle = BOOT::getInstance();
@@ -101,11 +103,13 @@ class CANFD_FORWARD_PROTOCOL
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;
 	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
 	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
-	inline static bool data2adapter_current_get_msgq_switch =
-		false; // false: data2adapter_dev_msgq_buffer_A; true:
-		       // data2adapter_dev_msgq_buffer_B
-	inline static bool data2robot_current_get_msgq_switch =
-		false; // false: data2robot_dev_msgq_buffer_A; true: data2robot_dev_msgq_buffer_B
+	// false: data2adapter_dev_msgq_buffer_A; true: data2adapter_dev_msgq_buffer_B
+	inline static bool data2adapter_current_get_msgq_switch = false;
+	// false: data2robot_dev_msgq_buffer_A; true: data2robot_dev_msgq_buffer_B
+	inline static bool data2robot_current_get_msgq_switch = false;
+	// false: data2adapter_dev_msgq_buffer_A; true: data2adapter_dev_msgq_buffer_B
+	inline static bool data2adapter_current_put_msgq_switch = false;
+	inline static bool data2robot_current_put_msgq_switch = false;
 
 	static std::unique_ptr<AdapterDataT> adapter_data2robot;
 	static std::unique_ptr<AdapterDataT> adapter_data2adapter;
@@ -114,9 +118,10 @@ class CANFD_FORWARD_PROTOCOL
 	static std::unique_ptr<data2adapter_msgq_task_info_t> data2adapter_msgq_task_info;
 	static std::unique_ptr<data2robot_msgq_task_info_t> data2robot_msgq_task_info;
 
-	static void data2adapter_msgq_callback(const device *dev, can_frame *frame,
-					       void *user_data);
-	static void data2robot_msgq_callback(const device *dev, can_frame *frame, void *user_data);
+	static void data2adapter_msgq_put_callback(const device *dev, can_frame *frame,
+						   void *user_data);
+	static void data2robot_msgq_put_callback(const device *dev, can_frame *frame,
+						 void *user_data);
 	static void data2adapter_bus_order_lock_order_data_callback(const device *dev,
 								    can_frame *frame,
 								    void *user_data);
@@ -136,6 +141,10 @@ class CANFD_FORWARD_PROTOCOL
 							  void *user_data);
 	static void adapter2adapter_bootloader_ota_callback(const device *dev, can_frame *frame,
 							    void *user_data);
+	void data2adapter_msgq_transmit_callback(const device *dev, can_frame *frame,
+						 void *user_data);
+	void data2robot_msgq_transmit_callback(const device *dev, can_frame *frame,
+					       void *user_data);
 	static void data2adapter_msgq_transmit_task(void *arg1, void *arg2, void *arg3);
 	static void data2robot_msgq_transmit_task(void *arg1, void *arg2, void *arg3);
 };

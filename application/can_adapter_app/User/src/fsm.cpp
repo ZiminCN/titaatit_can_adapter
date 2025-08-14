@@ -70,6 +70,9 @@ void FSM::fsm_data_forward_process_entry(void *obj)
 {
 	ARG_UNUSED(obj);
 	LOG_INF("FSM data forward process entry");
+	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+	fsm_driver_handle->canfd_forward_protocol_handle->data2adapter_msgq_transmit_create_task();
+	fsm_driver_handle->canfd_forward_protocol_handle->data2robot_msgq_transmit_create_task();
 }
 
 enum smf_state_result FSM::fsm_data_forward_process_run(void *obj)
@@ -88,6 +91,15 @@ enum smf_state_result FSM::fsm_data_forward_process_run(void *obj)
 	}
 
 	return SMF_EVENT_HANDLED;
+}
+
+void FSM::fsm_data_forward_process_exit(void *obj)
+{
+	ARG_UNUSED(obj);
+	LOG_INF("FSM data forward process exit");
+	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
+	fsm_driver_handle->canfd_forward_protocol_handle->data2adapter_msgq_transmit_destory_task();
+	fsm_driver_handle->canfd_forward_protocol_handle->data2robot_msgq_transmit_destory_task();
 }
 
 void FSM::fsm_sleep_entry(void *obj)
@@ -110,9 +122,9 @@ void FSM::fsm_sleep_exit(void *obj)
 static const struct smf_state fsm_states[] = {
 	[FSM_INIT_STATE] = SMF_CREATE_STATE(FSM::fsm_init_entry, FSM::fsm_init_run,
 					    FSM::fsm_init_exit, NULL, NULL),
-	[FSM_DATA_FORWARD_PROCESS_STATE] =
-		SMF_CREATE_STATE(FSM::fsm_data_forward_process_entry,
-				 FSM::fsm_data_forward_process_run, NULL, NULL, NULL),
+	[FSM_DATA_FORWARD_PROCESS_STATE] = SMF_CREATE_STATE(
+		FSM::fsm_data_forward_process_entry, FSM::fsm_data_forward_process_run,
+		FSM::fsm_data_forward_process_exit, NULL, NULL),
 	[FSM_SLEEP_STATE] = SMF_CREATE_STATE(FSM::fsm_sleep_entry, FSM::fsm_sleep_run,
 					     FSM::fsm_sleep_exit, NULL, NULL)};
 

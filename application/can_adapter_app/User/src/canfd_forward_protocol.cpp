@@ -79,14 +79,22 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 				.flags = 0,
 			},
 		.bus_order_callback = data2adapter_bus_order_data_callback,
-		// filter slave robot device data
-		.master_filter =
+		// filter slave robot device data part A
+		.master_part_A_filter =
 			{
 				.id = 0x124,
-				.mask = 0x7FC, // 0x124~0x127
+				.mask = 0x7FE, // 0x124/0x125
 				.flags = 0,
 			},
-		.master_callback = data2adapter_master_data_callback,
+		.master_part_A_callback = data2adapter_master_data_callback,
+		// filter slave robot device data part B
+		.master_part_B_filter =
+			{
+				.id = 0x126,
+				.mask = 0x7FE, // 0x126/0x127
+				.flags = 0,
+			},
+		.master_part_B_callback = data2adapter_master_data_callback,
 		// filter master robot device data
 		.slave_filter =
 			{
@@ -95,9 +103,12 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 				.flags = 0,
 			},
 		.slave_callback = data2adapter_slave_data_callback,
-		// filter forward bus data
-		.forward_bus_filter = {},
-		.forward_bus_callback = NULL,
+		// filter forward bus data part A
+		.forward_part_A_bus_filter = {},
+		.forward_part_A_bus_callback = NULL,
+		// filter forward bus data part B
+		.forward_part_B_bus_filter = {},
+		.forward_part_B_bus_callback = NULL,
 		// filter forward bus order data
 		.forward_bus_order_filter = {},
 		.forward_bus_order_callback = NULL,
@@ -136,20 +147,31 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2robot =
 		// filter robot bus order device data
 		.bus_order_filter = {},
 		.bus_order_callback = NULL,
-		// filter master robot device data
-		.master_filter = {},
-		.master_callback = NULL,
+		// filter master robot device data part A
+		.master_part_A_filter = {},
+		.master_part_A_callback = NULL,
+		// filter master robot device data part B
+		.master_part_B_filter = {},
+		.master_part_B_callback = NULL,
 		// filter slave robot device data
 		.slave_filter = {},
 		.slave_callback = NULL,
-		// filter forward bus data
-		.forward_bus_filter =
+		// filter forward bus data part A
+		.forward_part_A_bus_filter =
 			{
 				.id = 0x10,
-				.mask = 0x7F0, // 0x10 ~ 0x1F
+				.mask = 0x7FE, // 0x10/0x11
 				.flags = 0,
 			},
-		.forward_bus_callback = data2robot_forward_data_callback,
+		.forward_part_A_bus_callback = data2robot_forward_data_callback,
+		// filter forward bus data part B
+		.forward_part_B_bus_filter =
+			{
+				.id = 0x12,
+				.mask = 0x7FE, // 0x12/0x13
+				.flags = 0,
+			},
+		.forward_part_B_bus_callback = data2robot_forward_data_callback,
 		// filter forward bus order data
 		.forward_bus_order_filter =
 			{
@@ -203,11 +225,16 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 		canfd_2_dev, &data2adapter_dev_msgq_buffer,
 		&adapter_data2adapter->bus_order_lock_order_filter, this);
 	// add filter for master robot device, forward data to adapter
-	// 0x10A~0x10B
+	// 0x124/0x125
 	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
-							&adapter_data2adapter->master_filter, this);
+							&adapter_data2adapter->master_part_A_filter,
+							this);
+	// 0x126/0x127
+	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
+							&adapter_data2adapter->master_part_B_filter,
+							this);
 	// add filter for slave robot device, forward data to adapter
-	// 0x124~0x127
+	// 0x10A/0x10B
 	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
 							&adapter_data2adapter->slave_filter, this);
 	// add filter for order data
@@ -221,11 +248,16 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 		canfd_2_dev, &data2adapter_dev_msgq_buffer,
 		&adapter_data2adapter->robot2adapter_boot_ota_filter, this);
 
-	// add filter for forward bus
-	// 0x10~0x1F
-	i_ret = this->can_driver_handle->add_can_filter(canfd_3_dev, &data2robot_dev_msgq_buffer,
-							&adapter_data2robot->forward_bus_filter,
-							this);
+	// add filter for forward bus part A
+	// 0x10/0x11
+	i_ret = this->can_driver_handle->add_can_filter(
+		canfd_3_dev, &data2robot_dev_msgq_buffer,
+		&adapter_data2robot->forward_part_A_bus_filter, this);
+	// add filter for forward bus part B
+	// 0x12/0x13
+	i_ret = this->can_driver_handle->add_can_filter(
+		canfd_3_dev, &data2robot_dev_msgq_buffer,
+		&adapter_data2robot->forward_part_B_bus_filter, this);
 	// add filter for forward order bus
 	// 0x20~0x2F
 	i_ret = this->can_driver_handle->add_can_filter(
@@ -395,7 +427,7 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev
 
 	// forward_can_id = base_forward_can_id + offset
 	canfd_data2adapter.id = adapter_data2adapter->master_data_forward_bus_can_id +
-				(frame->id - adapter_data2adapter->master_filter.id);
+				(frame->id - adapter_data2adapter->master_part_A_filter.id);
 	canfd_data2adapter.dlc = frame->dlc;
 	canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 
@@ -413,15 +445,19 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_data_callback(const device *dev,
 	//       forward_driver_handle->can_driver_handle->get_canfd_2_dev();
 
 	// use if-else instead of switch-case
+	// get 0x18/0x19
 	if ((frame->id & (0x4F8U)) == (adapter_data2adapter->slave_data_forward_bus_can_id)) {
 
-		canfd_data2robot.id = adapter_data2robot->slave_data_forward_bus_can_id +
-				      (frame->id - adapter_data2robot->forward_bus_filter.id -
-				       adapter_data2robot->forward_bus_can_id_offset_max);
-	} else if ((frame->id & (0x4F8U)) ==
-		   (adapter_data2adapter->master_data_forward_bus_can_id)) {
-		canfd_data2robot.id = adapter_data2robot->master_data_forward_bus_can_id +
-				      (frame->id - adapter_data2robot->forward_bus_filter.id);
+		canfd_data2robot.id =
+			adapter_data2robot->slave_data_forward_bus_can_id +
+			(frame->id - adapter_data2robot->forward_part_A_bus_filter.id -
+			 adapter_data2robot->forward_bus_can_id_offset_max);
+	}
+	// get 0x10/0x11/0x12/0x13
+	else if ((frame->id & (0x4F8U)) == (adapter_data2adapter->master_data_forward_bus_can_id)) {
+		canfd_data2robot.id =
+			adapter_data2robot->master_data_forward_bus_can_id +
+			(frame->id - adapter_data2robot->forward_part_A_bus_filter.id);
 	}
 
 	adapter_data2robot->forward_data_cnt += 1;
@@ -839,6 +875,7 @@ void CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_callback(const device *dev
 	case 0x1D:
 	case 0x1E:
 	case 0x1F: {
+		// send 0x10A/0x10B, 0x124/0x125/0x126/0x127
 		forward_driver_handle->data2robot_forward_data_callback(dev, frame, this);
 		break;
 	}

@@ -331,6 +331,9 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_callback(const device *
 	canfd_data2adapter.dlc = frame->dlc;
 	canfd_data2adapter.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 
+	adapter_heart_beat->is_master_dev = true;
+	adapter_heart_beat->is_slave_dev = false;
+
 	memcpy(canfd_data2adapter.data, frame->data, can_dlc_to_bytes(frame->dlc));
 	forward_driver_handle->can_driver_handle->send_can_msg(dev, &canfd_data2adapter);
 }

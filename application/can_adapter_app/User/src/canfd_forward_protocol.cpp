@@ -67,7 +67,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 		.bus_order_lock_order_filter =
 			{
 				.id = 0x89,
-				.mask = 0x7FF, // 0x89U
+				.mask = 0x7FF, // 0x89U -> 0x20
 				.flags = 0,
 			},
 		.bus_order_lock_order_callback = data2adapter_bus_order_lock_order_data_callback,
@@ -75,7 +75,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 		.bus_order_filter =
 			{
 				.id = 0x170,
-				.mask = 0x7FF, // 0x170U
+				.mask = 0x7FF, // 0x170U -> 0x28
 				.flags = 0,
 			},
 		.bus_order_callback = data2adapter_bus_order_data_callback,
@@ -83,7 +83,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 		.master_part_A_filter =
 			{
 				.id = 0x124,
-				.mask = 0x7FE, // 0x124/0x125
+				.mask = 0x7FE, // 0x124/0x125 -> 0x10/0x11
 				.flags = 0,
 			},
 		.master_part_A_callback = data2adapter_master_data_callback,
@@ -91,7 +91,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 		.master_part_B_filter =
 			{
 				.id = 0x126,
-				.mask = 0x7FE, // 0x126/0x127
+				.mask = 0x7FE, // 0x126/0x127 -> 0x12/0x13
 				.flags = 0,
 			},
 		.master_part_B_callback = data2adapter_master_data_callback,
@@ -99,7 +99,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 		.slave_filter =
 			{
 				.id = 0x10A,
-				.mask = 0x7FE, // 0x10A~0x10B
+				.mask = 0x7FE, // 0x10A~0x10B -> 0x18/0x19
 				.flags = 0,
 			},
 		.slave_callback = data2adapter_slave_data_callback,
@@ -160,15 +160,15 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2robot =
 		.forward_part_A_bus_filter =
 			{
 				.id = 0x10,
-				.mask = 0x7FE, // 0x10/0x11
+				.mask = 0x7FC, // 0x10/0x11/0x12/0x13 -> 0x124/0x125/0x126/0x127
 				.flags = 0,
 			},
 		.forward_part_A_bus_callback = data2robot_forward_data_callback,
 		// filter forward bus data part B
 		.forward_part_B_bus_filter =
 			{
-				.id = 0x12,
-				.mask = 0x7FE, // 0x12/0x13
+				.id = 0x18,
+				.mask = 0x7FE, // 0x18/0x19 -> 0x10A/0x10B
 				.flags = 0,
 			},
 		.forward_part_B_bus_callback = data2robot_forward_data_callback,
@@ -224,6 +224,10 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 	i_ret = this->can_driver_handle->add_can_filter(
 		canfd_2_dev, &data2adapter_dev_msgq_buffer,
 		&adapter_data2adapter->bus_order_lock_order_filter, this);
+	// add filter for slave robot device, forward data to adapter
+	// 0x10A/0x10B
+	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
+							&adapter_data2adapter->slave_filter, this);
 	// add filter for master robot device, forward data to adapter
 	// 0x124/0x125
 	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
@@ -233,10 +237,6 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
 							&adapter_data2adapter->master_part_B_filter,
 							this);
-	// add filter for slave robot device, forward data to adapter
-	// 0x10A/0x10B
-	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,
-							&adapter_data2adapter->slave_filter, this);
 	// add filter for order data
 	// 0x170
 	i_ret = this->can_driver_handle->add_can_filter(canfd_2_dev, &data2adapter_dev_msgq_buffer,

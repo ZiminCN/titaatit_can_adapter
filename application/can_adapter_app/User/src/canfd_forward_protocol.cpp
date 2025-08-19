@@ -51,7 +51,8 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 				.mask = 0x7FF, // 0x89U
 				.flags = 0,
 			},
-		.bus_order_lock_order_callback = data2adapter_bus_order_lock_order_data_callback,
+		.bus_order_lock_order_callback =
+			data2adapter_bus_order_lock_order_data_speedup_callback,
 		// filter robot bus order device data
 		.bus_order_filter =
 			{
@@ -59,7 +60,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 				.mask = 0x7FF, // 0x170U
 				.flags = 0,
 			},
-		.bus_order_callback = data2adapter_bus_order_data_callback,
+		.bus_order_callback = data2adapter_bus_order_data_speedup_callback,
 		// filter slave robot device data
 		.master_filter =
 			{
@@ -67,7 +68,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 				.mask = 0x7FC, // 0x124~0x127
 				.flags = 0,
 			},
-		.master_callback = data2adapter_master_data_callback,
+		.master_callback = data2adapter_master_data_speedup_callback,
 		// filter master robot device data
 		.slave_filter =
 			{
@@ -75,7 +76,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2adapter =
 				.mask = 0x7FE, // 0x10A~0x10B
 				.flags = 0,
 			},
-		.slave_callback = data2adapter_slave_data_callback,
+		.slave_callback = data2adapter_slave_data_speedup_callback,
 		// filter forward bus data
 		.forward_bus_filter = {},
 		.forward_bus_callback = NULL,
@@ -130,7 +131,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2robot =
 				.mask = 0x7F0, // 0x10 ~ 0x1F
 				.flags = 0,
 			},
-		.forward_bus_callback = data2robot_forward_data_callback,
+		.forward_bus_callback = data2robot_forward_data_speedup_callback,
 		// filter forward bus order data
 		.forward_bus_order_filter =
 			{
@@ -138,7 +139,7 @@ std::unique_ptr<AdapterDataT> CANFD_FORWARD_PROTOCOL::adapter_data2robot =
 				.mask = 0x7F0, // 0x20 ~ 0x2F
 				.flags = 0,
 			},
-		.forward_bus_order_callback = data2robot_forward_bus_order_data_callback,
+		.forward_bus_order_callback = data2robot_forward_bus_order_data_speedup_callback,
 		// filter forward bus heartbeat data
 		.heartbeat_filter =
 			{
@@ -227,6 +228,20 @@ bool CANFD_FORWARD_PROTOCOL::forward_protocol_init()
 	return true;
 }
 
+void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_lock_order_data_speedup_callback(
+	const device *dev, can_frame *frame, void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	const struct device *canfd_3_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+
+	frame->id = forward_driver_handle->adapter_data2adapter
+			    ->bus_order_lock_order_data_forward_bus_can_id;
+	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, frame);
+}
+
 void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_lock_order_data_callback(const device *dev,
 									     can_frame *frame,
 									     void *user_data)
@@ -257,6 +272,20 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_lock_order_data_callback(con
 	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
 }
 
+void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_speedup_callback(const device *dev,
+									  can_frame *frame,
+									  void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	const struct device *canfd_3_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+
+	frame->id = forward_driver_handle->adapter_data2adapter->bus_order_data_forward_bus_can_id;
+	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, frame);
+}
+
 void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_callback(const device *dev,
 								  can_frame *frame, void *user_data)
 {
@@ -284,6 +313,24 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_callback(const device *
 
 	memcpy(canfd_data2adapter.data, frame->data, can_dlc_to_bytes(frame->dlc));
 	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
+}
+
+void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_speedup_callback(const device *dev,
+								      can_frame *frame,
+								      void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	const struct device *canfd_3_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+
+	forward_driver_handle->adapter_heart_beat->is_slave_dev = true;
+
+	frame->id = forward_driver_handle->adapter_data2adapter->slave_data_forward_bus_can_id +
+		    (frame->id - forward_driver_handle->adapter_data2adapter->slave_filter.id);
+
+	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, frame);
 }
 
 void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev, can_frame *frame,
@@ -336,6 +383,24 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_callback(const device *dev,
 	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
 }
 
+void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_speedup_callback(const device *dev,
+								       can_frame *frame,
+								       void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	const struct device *canfd_3_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
+
+	forward_driver_handle->adapter_heart_beat->is_master_dev = true;
+
+	frame->id = forward_driver_handle->adapter_data2adapter->master_data_forward_bus_can_id +
+		    (frame->id - forward_driver_handle->adapter_data2adapter->master_filter.id);
+
+	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, frame);
+}
+
 void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev, can_frame *frame,
 							       void *user_data)
 {
@@ -386,6 +451,36 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_callback(const device *dev
 	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2adapter);
 }
 
+void CANFD_FORWARD_PROTOCOL::data2robot_forward_data_speedup_callback(const device *dev,
+								      can_frame *frame,
+								      void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	const struct device *canfd_2_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+
+	// use if-else instead of switch-case
+	if ((frame->id & (0x4F8U)) ==
+	    (forward_driver_handle->adapter_data2adapter->slave_data_forward_bus_can_id)) {
+
+		frame->id =
+			forward_driver_handle->adapter_data2robot->slave_data_forward_bus_can_id +
+			(frame->id -
+			 forward_driver_handle->adapter_data2robot->forward_bus_filter.id -
+			 forward_driver_handle->adapter_data2robot->forward_bus_can_id_offset_max);
+	} else if ((frame->id & (0x4F8U)) ==
+		   (forward_driver_handle->adapter_data2adapter->master_data_forward_bus_can_id)) {
+		frame->id =
+			forward_driver_handle->adapter_data2robot->master_data_forward_bus_can_id +
+			(frame->id -
+			 forward_driver_handle->adapter_data2robot->forward_bus_filter.id);
+	}
+
+	forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev, frame);
+}
+
 void CANFD_FORWARD_PROTOCOL::data2robot_forward_data_callback(const device *dev, can_frame *frame,
 							      void *user_data)
 {
@@ -423,6 +518,30 @@ void CANFD_FORWARD_PROTOCOL::data2robot_forward_data_callback(const device *dev,
 
 	memcpy(canfd_data2robot.data, frame->data, can_dlc_to_bytes(frame->dlc));
 	forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev, &canfd_data2robot);
+}
+
+void CANFD_FORWARD_PROTOCOL::data2robot_forward_bus_order_data_speedup_callback(const device *dev,
+										can_frame *frame,
+										void *user_data)
+{
+	CANFD_FORWARD_PROTOCOL *forward_driver_handle =
+		static_cast<CANFD_FORWARD_PROTOCOL *>(user_data);
+
+	const struct device *canfd_2_dev =
+		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
+
+	// use if-else instead of switch-case
+	if ((frame->id & (0x4F8U)) == (forward_driver_handle->adapter_data2adapter
+					       ->bus_order_lock_order_data_forward_bus_can_id)) {
+		frame->id = forward_driver_handle->adapter_data2robot
+				    ->bus_order_lock_order_data_forward_bus_can_id;
+	} else if ((frame->id & (0x4F8U)) == (forward_driver_handle->adapter_data2adapter
+						      ->bus_order_data_forward_bus_can_id)) {
+		frame->id = forward_driver_handle->adapter_data2robot
+				    ->bus_order_data_forward_bus_can_id;
+	}
+
+	forward_driver_handle->can_driver_handle->send_can_msg(canfd_2_dev, frame);
 }
 
 void CANFD_FORWARD_PROTOCOL::data2robot_forward_bus_order_data_callback(const device *dev,

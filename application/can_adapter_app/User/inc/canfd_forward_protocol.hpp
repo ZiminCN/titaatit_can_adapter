@@ -93,17 +93,31 @@ class CANFD_FORWARD_PROTOCOL
 	static std::unique_ptr<AdapterDataT> adapter_data2robot;
 	static std::unique_ptr<AdapterDataT> adapter_data2adapter;
 	static std::unique_ptr<AdapterHeartBeatT> adapter_heart_beat;
+	static void data2adapter_bus_order_lock_order_data_speedup_callback(const device *dev,
+									    can_frame *frame,
+									    void *user_data);
 	static void data2adapter_bus_order_lock_order_data_callback(const device *dev,
 								    can_frame *frame,
 								    void *user_data);
+	static void data2adapter_bus_order_data_speedup_callback(const device *dev,
+								 can_frame *frame, void *user_data);
 	static void data2adapter_bus_order_data_callback(const device *dev, can_frame *frame,
 							 void *user_data);
+	static void data2adapter_master_data_speedup_callback(const device *dev, can_frame *frame,
+							      void *user_data);
 	static void data2adapter_master_data_callback(const device *dev, can_frame *frame,
 						      void *user_data);
+	static void data2adapter_slave_data_speedup_callback(const device *dev, can_frame *frame,
+							     void *user_data);
 	static void data2adapter_slave_data_callback(const device *dev, can_frame *frame,
 						     void *user_data);
+	static void data2robot_forward_data_speedup_callback(const device *dev, can_frame *frame,
+							     void *user_data);
 	static void data2robot_forward_data_callback(const device *dev, can_frame *frame,
 						     void *user_data);
+	static void data2robot_forward_bus_order_data_speedup_callback(const device *dev,
+								       can_frame *frame,
+								       void *user_data);
 	static void data2robot_forward_bus_order_data_callback(const device *dev, can_frame *frame,
 							       void *user_data);
 	static void data2robot_heartbeat_data_callback(const device *dev, can_frame *frame,

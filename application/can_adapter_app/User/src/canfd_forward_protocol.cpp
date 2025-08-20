@@ -282,6 +282,9 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_bus_order_data_speedup_callback(const 
 	const struct device *canfd_3_dev =
 		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
+	forward_driver_handle->adapter_heart_beat->is_master_dev = true;
+	forward_driver_handle->adapter_heart_beat->is_slave_dev = false;
+
 	frame->id = forward_driver_handle->adapter_data2adapter->bus_order_data_forward_bus_can_id;
 	forward_driver_handle->can_driver_handle->send_can_msg(canfd_3_dev, frame);
 }
@@ -325,6 +328,7 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_slave_data_speedup_callback(const devi
 	const struct device *canfd_3_dev =
 		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
+	forward_driver_handle->adapter_heart_beat->is_master_dev = false;
 	forward_driver_handle->adapter_heart_beat->is_slave_dev = true;
 
 	frame->id = forward_driver_handle->adapter_data2adapter->slave_data_forward_bus_can_id +
@@ -394,6 +398,7 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_master_data_speedup_callback(const dev
 		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
 	forward_driver_handle->adapter_heart_beat->is_master_dev = true;
+	forward_driver_handle->adapter_heart_beat->is_slave_dev = false;
 
 	frame->id = forward_driver_handle->adapter_data2adapter->master_data_forward_bus_can_id +
 		    (frame->id - forward_driver_handle->adapter_data2adapter->master_filter.id);
@@ -755,8 +760,8 @@ int CANFD_FORWARD_PROTOCOL::test_canfd_send()
 static struct can_frame canfd_data2heartbeat;
 void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 {
-	if (adapter_heart_beat->is_received_heartbeat == true) {
-		adapter_heart_beat->timeout_cnt += 1;
+	if (this->adapter_heart_beat->is_received_heartbeat == true) {
+		this->adapter_heart_beat->timeout_cnt += 1;
 
 		if (stable_connection_flag == false) {
 			lost_heartbeat_cnt += 1;
@@ -769,12 +774,12 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 			}
 		}
 
-		if (adapter_heart_beat->timeout_cnt >= 10) {
+		if (this->adapter_heart_beat->timeout_cnt >= 10) {
 			LOG_INF("Loss Heart Beat...");
-			adapter_heart_beat->is_received_heartbeat = false;
-			adapter_heart_beat->is_master_dev = false;
-			adapter_heart_beat->is_slave_dev = false;
-			adapter_heart_beat->timeout_cnt = 0;
+			this->adapter_heart_beat->is_received_heartbeat = false;
+			this->adapter_heart_beat->is_master_dev = false;
+			this->adapter_heart_beat->is_slave_dev = false;
+			this->adapter_heart_beat->timeout_cnt = 0;
 			lost_heartbeat_cnt = 0;
 			stable_heartbeat_cnt = 0;
 			stable_connection_flag = false;
@@ -784,15 +789,15 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 	// wait for robot master can data to send heartbeat
 
 	// Assign heartbeat ID
-	if ((adapter_heart_beat->is_master_dev == true) &&
-	    (adapter_heart_beat->is_slave_dev == false)) {
+	if ((this->adapter_heart_beat->is_master_dev == true) &&
+	    (this->adapter_heart_beat->is_slave_dev == false)) {
 		// master heartbeat ID: 0x100
-		adapter_heart_beat->is_received_heartbeat = true;
+		this->adapter_heart_beat->is_received_heartbeat = true;
 		canfd_data2heartbeat.id = 0x100U;
-	} else if ((adapter_heart_beat->is_slave_dev == true) &&
-		   (adapter_heart_beat->is_master_dev == false)) {
+	} else if ((this->adapter_heart_beat->is_slave_dev == true) &&
+		   (this->adapter_heart_beat->is_master_dev == false)) {
 		// slave heartbeat ID: 0x101
-		adapter_heart_beat->is_received_heartbeat = true;
+		this->adapter_heart_beat->is_received_heartbeat = true;
 		canfd_data2heartbeat.id = 0x101U;
 	} else {
 		return;
@@ -801,13 +806,15 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 	const struct device *canfd_3_dev = this->can_driver_handle->get_canfd_3_dev();
 
 	canfd_data2heartbeat.dlc = can_bytes_to_dlc(5);
-	canfd_data2heartbeat.data[0] = ((adapter_heart_beat->is_enable == true) ? 0x01U : 0x00U);
+	canfd_data2heartbeat.data[0] =
+		((this->adapter_heart_beat->is_enable == true) ? 0x01U : 0x00U);
 	canfd_data2heartbeat.data[1] =
-		((adapter_heart_beat->is_received_heartbeat == true) ? 0x01U : 0x00U);
+		((this->adapter_heart_beat->is_received_heartbeat == true) ? 0x01U : 0x00U);
 	canfd_data2heartbeat.data[2] =
-		((adapter_heart_beat->is_master_dev == true) ? 0x01U : 0x00U);
-	canfd_data2heartbeat.data[3] = ((adapter_heart_beat->is_slave_dev == true) ? 0x01U : 0x00U);
-	canfd_data2heartbeat.data[4] = adapter_heart_beat->timeout_cnt;
+		((this->adapter_heart_beat->is_master_dev == true) ? 0x01U : 0x00U);
+	canfd_data2heartbeat.data[3] =
+		((this->adapter_heart_beat->is_slave_dev == true) ? 0x01U : 0x00U);
+	canfd_data2heartbeat.data[4] = this->adapter_heart_beat->timeout_cnt;
 
 	this->can_driver_handle->send_can_msg(canfd_3_dev, &canfd_data2heartbeat);
 }
@@ -815,11 +822,11 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 static bool last_heartbeat_status = false;
 HeartbeatDetectedStatusE CANFD_FORWARD_PROTOCOL::is_detected_heartbeat()
 {
-	if (last_heartbeat_status == adapter_heart_beat->is_received_heartbeat) {
+	if (last_heartbeat_status == this->adapter_heart_beat->is_received_heartbeat) {
 		return HeartbeatDetectedStatusE::HEART_BEAT_NO_CHANGE; // No change in
 								       // heartbeat status
 	} else {
-		last_heartbeat_status = adapter_heart_beat->is_received_heartbeat;
+		last_heartbeat_status = this->adapter_heart_beat->is_received_heartbeat;
 		if (last_heartbeat_status == true) {
 			return HeartbeatDetectedStatusE::HEART_BEAT_DETECTED; // Heartbeat
 									      // detected

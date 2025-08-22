@@ -35,15 +35,15 @@ int main(void)
 
 	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
 
-	fsm_driver_handle->canfd_forward_protocol_handle->boot_driver_handle
-		->set_app_checkpoint_flag_active();
+	// fsm_driver_handle->canfd_forward_protocol_handle->boot_driver_handle
+	// 	->set_app_checkpoint_flag_active();
 
-	// TODO: need check is_boot_update_flag
-	if (fsm_driver_handle->canfd_forward_protocol_handle->boot_driver_handle
-		    ->get_boot_upgrade_flag() != false) {
-		fsm_driver_handle->canfd_forward_protocol_handle->boot_driver_handle
-			->set_app_upgrade_flag_active();
-	}
+	// // TODO: need check is_boot_update_flag
+	// if (fsm_driver_handle->canfd_forward_protocol_handle->boot_driver_handle
+	// 	    ->get_boot_upgrade_flag() != false) {
+	// 	fsm_driver_handle->canfd_forward_protocol_handle->boot_driver_handle
+	// 		->set_app_upgrade_flag_active();
+	// }
 
 	fsm_driver_handle->fsm_init(FSM_INIT_STATE);
 

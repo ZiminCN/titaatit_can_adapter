@@ -35,6 +35,8 @@
 	};
 	zephyr,user {
 		pwr-48v-mosfet-gpios = <&gpioa 2 GPIO_ACTIVE_HIGH>;
+		heartbeat-led-gpios = <&gpiob 7 GPIO_ACTIVE_LOW>;
+		system-led-gpios = <&gpiob 6 GPIO_ACTIVE_LOW>;
 	};
 };
 

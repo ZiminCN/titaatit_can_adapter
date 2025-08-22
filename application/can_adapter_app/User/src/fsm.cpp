@@ -40,7 +40,7 @@ void FSM::fsm_init_entry(void *obj)
 	LOG_INF("FSM init entry");
 
 	std::shared_ptr<FSM> fsm_driver_handle = FSM::getInstance();
-	// fsm_driver_handle->mosfet_control_handle->set_48v_mosfet_state(GPIO_OUTPUT_ACTIVE);
+	// fsm_driver_handle->gpio_control_handle->set_48v_mosfet_state(GPIO_OUTPUT_ACTIVE);
 	// timer init
 
 	// timer start
@@ -85,10 +85,20 @@ enum smf_state_result FSM::fsm_data_forward_process_run(void *obj)
 	int ret = fsm_driver_handle->canfd_forward_protocol_handle->is_detected_heartbeat();
 	// control 48v mosfet on/off
 	if (ret == HeartbeatDetectedStatusE::HEART_BEAT_DETECTED) {
-		// fsm_driver_handle->mosfet_control_handle->set_48v_mosfet_state(GPIO_OUTPUT_ACTIVE);
+		// fsm_driver_handle->gpio_control_handle->set_48v_mosfet_state(GPIO_OUTPUT_ACTIVE);
+		fsm_driver_handle->gpio_control_handle->set_heartbeat_led_state(GPIO_OUTPUT_ACTIVE);
 	} else if (ret == HeartbeatDetectedStatusE::HEART_BEAT_LOST) {
-		// fsm_driver_handle->mosfet_control_handle->set_48v_mosfet_state(GPIO_OUTPUT_INACTIVE);
+		// fsm_driver_handle->gpio_control_handle->set_48v_mosfet_state(GPIO_OUTPUT_INACTIVE);
+		fsm_driver_handle->gpio_control_handle->set_heartbeat_led_state(
+			GPIO_OUTPUT_INACTIVE);
 	}
+
+	if (fsm_driver_handle->system_led_flag) {
+		fsm_driver_handle->gpio_control_handle->set_system_led_state(GPIO_OUTPUT_ACTIVE);
+	} else {
+		fsm_driver_handle->gpio_control_handle->set_system_led_state(GPIO_OUTPUT_INACTIVE);
+	}
+	fsm_driver_handle->system_led_flag = !fsm_driver_handle->system_led_flag;
 
 	return SMF_EVENT_HANDLED;
 }
@@ -211,7 +221,7 @@ bool FSM::pre_init()
 	this->canfd_forward_protocol_handle->forward_protocol_init();
 	// this->usb_acm_handle->usb_cdc_acm_init();
 	// this->ring_buf_handle.ring_buf_init(false, false, 15);
-	// this->mosfet_control_handle->init();
+	this->gpio_control_handle->init();
 	return true;
 }
 

@@ -13,25 +13,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mosfet_control.hpp"
+#include "gpios_control.hpp"
 
 #include <zephyr/logging/log.h>
 
-LOG_MODULE_REGISTER(mosfet_control, LOG_LEVEL_INF);
+LOG_MODULE_REGISTER(GPIO_CONTROL, LOG_LEVEL_INF);
 
-std::unique_ptr<MOSFET_CONTROL> MOSFET_CONTROL::Instance = std::make_unique<MOSFET_CONTROL>();
+std::unique_ptr<GPIO_CONTROL> GPIO_CONTROL::Instance = std::make_unique<GPIO_CONTROL>();
 
-std::unique_ptr<MOSFET_CONTROL> MOSFET_CONTROL::getInstance()
+std::unique_ptr<GPIO_CONTROL> GPIO_CONTROL::getInstance()
 {
-	return std::move(MOSFET_CONTROL::Instance);
+	return std::move(GPIO_CONTROL::Instance);
 }
 
-void MOSFET_CONTROL::init()
+void GPIO_CONTROL::init()
 {
 	this->gpio_handle->init();
 }
 
-void MOSFET_CONTROL::set_48v_mosfet_state(gpio_flags_t extra_flags)
+void GPIO_CONTROL::set_48v_mosfet_state(gpio_flags_t extra_flags)
 {
 	this->gpio_handle->set_48v_gpio_state(extra_flags);
+}
+
+void GPIO_CONTROL::set_heartbeat_led_state(gpio_flags_t extra_flags)
+{
+	this->gpio_handle->set_heartbeat_gpio_state(extra_flags);
+}
+
+void GPIO_CONTROL::set_system_led_state(gpio_flags_t extra_flags)
+{
+	this->gpio_handle->set_system_gpio_state(extra_flags);
 }

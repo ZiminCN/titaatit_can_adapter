@@ -29,6 +29,7 @@
 #define CANFD_ID_AS_R2A_OTA_UPGRADE 0x383U
 #define CANFD_ID_AS_R2A_OTA_PACKAGE 0x384U
 #define CANFD_ID_AS_A2R_OTA_ACK	    0x385U
+#define CANFD_ID_AS_CHECK_DEV_INFO  0x386U
 
 // adapter to adapter canfd bus
 #define CANFD_ID_AS_A2A_OTA_SIGNAL  0x202U

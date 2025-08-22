@@ -23,7 +23,7 @@
 
 #include "can.hpp"
 #include "canfd_forward_protocol.hpp"
-#include "mosfet_control.hpp"
+#include "gpios_control.hpp"
 #include "ring_buf.hpp"
 #include "timer.hpp"
 #include "usb_acm.hpp"
@@ -99,7 +99,7 @@ class FSM
 	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
 	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
 	std::unique_ptr<USB_ACM> usb_acm_handle = USB_ACM::getInstance();
-	std::unique_ptr<MOSFET_CONTROL> mosfet_control_handle = MOSFET_CONTROL::getInstance();
+	std::unique_ptr<GPIO_CONTROL> gpio_control_handle = GPIO_CONTROL::getInstance();
 	RING_BUF ring_buf_handle;
 
 	int test_cnt_num = 0;
@@ -111,6 +111,8 @@ class FSM
 	static void fsm_timer_callback(struct k_timer *timer_id);
 	void set_fsm_state(std::shared_ptr<fsm_work_t> fsm_work, const enum fsm_state_t state);
 	static void fsm_handle(struct k_work *work);
+
+	inline static bool system_led_flag = false;
 };
 
 #endif // __FSM_HPP__

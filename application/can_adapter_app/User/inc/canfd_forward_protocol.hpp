@@ -22,6 +22,7 @@
 #include "Common.hpp"
 #include "boot.hpp"
 #include "can.hpp"
+#include "dev_info.hpp"
 #include "timer.hpp"
 #include <memory>
 
@@ -107,6 +108,7 @@ class CANFD_FORWARD_PROTOCOL
 	static std::unique_ptr<CANFD_FORWARD_PROTOCOL> Instance;
 	std::shared_ptr<CAN> can_driver_handle = CAN::getInstance();
 	std::unique_ptr<TIMER> timer_driver_handle = TIMER::getInstance();
+	std::shared_ptr<DEV_INFO> dev_info_handle = DEV_INFO::getInstance();
 
 	static std::unique_ptr<AdapterDataT> adapter_data2robot;
 	static std::unique_ptr<AdapterDataT> adapter_data2adapter;

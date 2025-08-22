@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "app_version.h"
 #include "canfd_forward_protocol.hpp"
 
 #include <zephyr/logging/log.h>
@@ -532,7 +533,7 @@ void CANFD_FORWARD_PROTOCOL::robot2adapter_bootloader_ota_callback(const device 
 	switch (frame->id) {
 	case CANFD_ID_AS_R2A_OTA_SIGNAL: {
 		// jump2boot
-		forward_driver_handle->boot_driver_handle->boot2boot();
+		// forward_driver_handle->boot_driver_handle->boot2boot();
 		break;
 	}
 	case CANFD_ID_AS_R2A_OTA_UPGRADE: {
@@ -558,6 +559,28 @@ void CANFD_FORWARD_PROTOCOL::robot2adapter_bootloader_ota_callback(const device 
 		}
 		break;
 	}
+	case CANFD_ID_AS_CHECK_DEV_INFO: {
+		// return myself device id and software version
+		HARDWARE_DEVICE_INFO_T dev_info;
+		dev_info = forward_driver_handle->dev_info_handle->get_hardware_device_uuid();
+
+		// set ack frame
+		canfd_data2robot.id = CANFD_ID_AS_A2R_OTA_ACK;
+		canfd_data2robot.dlc = can_bytes_to_dlc(64);
+		canfd_data2robot.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
+
+		uint32_t boot_version = static_cast<uint32_t>(APP_VERSION);
+		uint32_t boot_timestamp = static_cast<uint32_t>(APP_BUILD_TIMESTAMP);
+
+		memcpy(canfd_data2robot.data, &dev_info.uuid, sizeof(HARDWARE_DEVICE_INFO_T));
+		memcpy(canfd_data2robot.data + sizeof(HARDWARE_DEVICE_INFO_T), &boot_version,
+		       sizeof(uint32_t));
+		memcpy(canfd_data2robot.data + sizeof(HARDWARE_DEVICE_INFO_T) + sizeof(uint32_t),
+		       &boot_timestamp, sizeof(uint32_t));
+
+		forward_driver_handle->can_driver_handle->send_can_msg(dev, &canfd_data2robot);
+		break;
+	}
 	default: {
 		break;
 	}
@@ -577,7 +600,7 @@ void CANFD_FORWARD_PROTOCOL::adapter2adapter_bootloader_ota_callback(const devic
 	switch (frame->id) {
 	case CANFD_ID_AS_A2A_OTA_SIGNAL: {
 		// jump2boot
-		forward_driver_handle->boot_driver_handle->boot2boot();
+		// forward_driver_handle->boot_driver_handle->boot2boot();
 		break;
 	}
 	case CANFD_ID_AS_A2A_OTA_UPGRADE: {
@@ -738,6 +761,7 @@ void CANFD_FORWARD_PROTOCOL::heartbeat_pong_tong()
 
 	const struct device *canfd_3_dev = this->can_driver_handle->get_canfd_3_dev();
 
+	canfd_data2heartbeat.flags = CAN_FRAME_FDF | CAN_FRAME_BRS;
 	canfd_data2heartbeat.dlc = can_bytes_to_dlc(5);
 	canfd_data2heartbeat.data[0] = ((adapter_heart_beat->is_enable == true) ? 0x01U : 0x00U);
 	canfd_data2heartbeat.data[1] =
@@ -819,7 +843,7 @@ void CANFD_FORWARD_PROTOCOL::data2adapter_msgq_transmit_task(void *arg1, void *a
 		forward_driver_handle->can_driver_handle->get_canfd_3_dev();
 
 	while (1) {
-		LOG_INF("data2adapter_msgq_transmit_task");
+		// LOG_INF("data2adapter_msgq_transmit_task");
 		if (k_msgq_get(&data2adapter_dev_msgq_buffer, &frame, K_FOREVER) == 0) {
 			// do callback
 			forward_driver_handle->data2adapter_msgq_transmit_callback(
@@ -926,7 +950,7 @@ void CANFD_FORWARD_PROTOCOL::data2robot_msgq_transmit_task(void *arg1, void *arg
 		forward_driver_handle->can_driver_handle->get_canfd_2_dev();
 
 	while (1) {
-		LOG_INF("data2robot_msgq_transmit_task");
+		// LOG_INF("data2robot_msgq_transmit_task");
 		if (k_msgq_get(&data2robot_dev_msgq_buffer, &frame, K_FOREVER) == 0) {
 			// do callback
 			forward_driver_handle->data2robot_msgq_transmit_callback(

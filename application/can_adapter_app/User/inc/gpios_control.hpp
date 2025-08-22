@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __MOSFET_CONTROL_HPP__
-#define __MOSFET_CONTROL_HPP__
+#ifndef __GPIO_CONTROL_HPP__
+#define __GPIO_CONTROL_HPP__
 
 #include <zephyr/device.h>
 #include <zephyr/kernel.h>
@@ -22,21 +22,23 @@
 #include "gpio.hpp"
 #include <memory>
 
-class MOSFET_CONTROL
+class GPIO_CONTROL
 {
       public:
-	MOSFET_CONTROL() = default;
-	~MOSFET_CONTROL() = default;
-	MOSFET_CONTROL(const MOSFET_CONTROL &) = delete;
-	MOSFET_CONTROL &operator=(const MOSFET_CONTROL &) = delete;
-	static std::unique_ptr<MOSFET_CONTROL> getInstance();
+	GPIO_CONTROL() = default;
+	~GPIO_CONTROL() = default;
+	GPIO_CONTROL(const GPIO_CONTROL &) = delete;
+	GPIO_CONTROL &operator=(const GPIO_CONTROL &) = delete;
+	static std::unique_ptr<GPIO_CONTROL> getInstance();
 
 	void init();
 	void set_48v_mosfet_state(gpio_flags_t extra_flags);
+	void set_heartbeat_led_state(gpio_flags_t extra_flags);
+	void set_system_led_state(gpio_flags_t extra_flags);
 
       private:
-	static std::unique_ptr<MOSFET_CONTROL> Instance;
+	static std::unique_ptr<GPIO_CONTROL> Instance;
 	std::unique_ptr<GPIO> gpio_handle = GPIO::getInstance();
 };
 
-#endif // __MOSFET_CONTROL_HPP__
+#endif // __GPIO_CONTROL_HPP__

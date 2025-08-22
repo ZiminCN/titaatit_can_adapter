@@ -36,6 +36,16 @@
                 "string_view": "cpp",
                 "array": "cpp",
                 "vector": "cpp",
-                "*.in": "cpp"
+                "*.in": "cpp",
+                "__hash_table": "cpp",
+                "__node_handle": "cpp",
+                "__split_buffer": "cpp",
+                "cctype": "cpp",
+                "clocale": "cpp",
+                "deque": "cpp",
+                "optional": "cpp",
+                "queue": "cpp",
+                "stack": "cpp",
+                "unordered_map": "cpp"
         }
 }

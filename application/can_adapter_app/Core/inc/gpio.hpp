@@ -33,6 +33,8 @@ class GPIO
 	static std::unique_ptr<GPIO> getInstance();
 	void init();
 	void set_48v_gpio_state(gpio_flags_t extra_flags);
+	void set_heartbeat_gpio_state(gpio_flags_t extra_flags);
+	void set_system_gpio_state(gpio_flags_t extra_flags);
 
       private:
 	static std::unique_ptr<GPIO> Instance;

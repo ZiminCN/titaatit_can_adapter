@@ -21,6 +21,10 @@ LOG_MODULE_REGISTER(gpio, LOG_LEVEL_INF);
 
 static const struct gpio_dt_spec pwr48v_mosfet_spec =
 	GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), pwr_48v_mosfet_gpios);
+static const struct gpio_dt_spec heartbeat_led_spec =
+	GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), heartbeat_led_gpios);
+static const struct gpio_dt_spec system_led_spec =
+	GPIO_DT_SPEC_GET(DT_PATH(zephyr_user), system_led_gpios);
 
 std::unique_ptr<GPIO> GPIO::Instance = std::make_unique<GPIO>();
 
@@ -39,7 +43,19 @@ void GPIO::init()
 		return;
 	}
 
-	LOG_INF("PWR 48V MOSFET GPIO is ready!");
+	ret = gpio_is_ready_dt(&heartbeat_led_spec);
+	if (!ret) {
+		LOG_ERR("HEARTBEAT LED GPIO is not ready!");
+		return;
+	}
+
+	ret = gpio_is_ready_dt(&system_led_spec);
+	if (!ret) {
+		LOG_ERR("SYSTEM LED GPIO is not ready!");
+		return;
+	}
+
+	LOG_INF("ALL GPIO is ready!");
 }
 
 void GPIO::gpio_callback(std::function<void()> callback)
@@ -56,4 +72,15 @@ void GPIO::set_48v_gpio_state(gpio_flags_t extra_flags)
 {
 	this->gpio_callback(
 		std::bind(&GPIO::set_gpio_state, this, &pwr48v_mosfet_spec, extra_flags));
+}
+
+void GPIO::set_heartbeat_gpio_state(gpio_flags_t extra_flags)
+{
+	this->gpio_callback(
+		std::bind(&GPIO::set_gpio_state, this, &heartbeat_led_spec, extra_flags));
+}
+
+void GPIO::set_system_gpio_state(gpio_flags_t extra_flags)
+{
+	this->gpio_callback(std::bind(&GPIO::set_gpio_state, this, &system_led_spec, extra_flags));
 }
